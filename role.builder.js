@@ -18,9 +18,27 @@ var roleBuilder = {
                 if(creep.build(targets[0]) == ERR_NOT_IN_RANGE) {
                     creep.moveTo(targets[0], {visualizePathStyle: {stroke: '#ffffff'}});
                 }
+            } else {
+                return false;
             }
 	    }
 	    else {
+	        var container = Game.getObjectById(creep.memory.container);
+            if(container && container.store[RESOURCE_ENERGY] > 500) {
+                if(creep.withdraw(container, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+                    creep.moveTo(container);
+                }
+            } else {
+                var source = Game.getObjectById(creep.memory.source);
+                if(!source) {
+                    source = creep.pos.findClosestByPath(FIND_SOURCES);
+                    creep.memory.source = source.id;
+                }
+                if(creep.harvest(source) == ERR_NOT_IN_RANGE) {
+                    creep.moveTo(source);
+                }
+            }
+            /*
 	        if(!creep.memory.source) {
                 var sources = creep.room.find(FIND_SOURCES);
                 creep.memory.source = sources[0].id;
@@ -29,6 +47,7 @@ var roleBuilder = {
             if(creep.harvest(source) == ERR_NOT_IN_RANGE) {
                 creep.moveTo(source, {visualizePathStyle: {stroke: '#ffaa00'}});
             }
+            */
 	    }
 	}
 };
