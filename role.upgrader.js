@@ -1,33 +1,28 @@
-var roleUpgrader = {
-
-    /** @param {Creep} creep **/
-    run: function(creep) {
-
-        if(creep.memory.upgrading && creep.carry.energy == 0) {
-            creep.memory.upgrading = false;
+// roleUpgrader
+module.exports = {
+    run: function(creep, mem) {
+        if(!creep.memory.filling && creep.carry.energy == 0) {
+            creep.memory.filling = true;
             creep.say('🔄 harvest');
 	    }
-	    if(!creep.memory.upgrading && creep.carry.energy == creep.carryCapacity) {
-	        creep.memory.upgrading = true;
+	    if(creep.memory.filling && creep.carry.energy == creep.carryCapacity) {
+	        creep.memory.filling = false;
 	        creep.say('⚡ upgrade');
 	    }
 
-	    if(creep.memory.upgrading) {
+	    if(!creep.memory.filling) {
             if(creep.upgradeController(creep.room.controller) == ERR_NOT_IN_RANGE) {
                 creep.moveTo(creep.room.controller, {visualizePathStyle: {stroke: '#ffffff'}});
             }
-        }
-        else {
-            if(!creep.memory.source) {
-                var sources = creep.room.find(FIND_SOURCES);
-                creep.memory.source = sources[0].id;
-            }
+        } else {
             var source = Game.getObjectById(creep.memory.source);
+            if(!source) {
+                source = creep.room.controller.pos.findClosestByPath(FIND_SOURCES);
+                creep.memory.source = source.id;
+            }
             if(creep.harvest(source) == ERR_NOT_IN_RANGE) {
                 creep.moveTo(source, {visualizePathStyle: {stroke: '#ffaa00'}});
             }
         }
 	}
 };
-
-module.exports = roleUpgrader;
