@@ -1,4 +1,5 @@
 // roleUpgrader
+// Game.spawns.Spawn1.spawnCreep(Array(6).fill(WORK).concat(Array(6).fill(CARRY), Array(12).fill(MOVE)), 'remoteUpgrader3', {memory: {role: 'relocater', subtype: '_W5N9', reloRoom: 'W5N9', reloNextRole: 'upgrader'}})
 module.exports = {
     run: function(creep, mem) {
         if(!creep.memory.filling && creep.carry.energy == 0) {

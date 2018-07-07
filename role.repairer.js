@@ -40,8 +40,14 @@ module.exports = {
                 }
                 creep.memory.repairTarget = target.id;
             }
-            if(creep.repair(target) == ERR_NOT_IN_RANGE) {
+            switch(creep.repair(target)) {
+            case ERR_NOT_IN_RANGE:
                 creep.moveTo(target);
+                break;
+            case OK:
+                var repairPow = creep.getActiveBodyparts(WORK);
+                creep.memory.delivered += Math.min(creep.carry.energy, repairPow);
+                break;
             }
         }
     }

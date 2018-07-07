@@ -4,6 +4,9 @@ var roleUpgrader = require('role.upgrader');
 var roleBuilder = require('role.builder');
 var roleRepairer = require('role.repairer');
 var roleDefender = require('role.defender');
+var roleClaimer = require('role.claimer');
+var roleRelocater = require('role.relocater');
+var roleMiner = require('role.miner');
 var roleTower = require('role.tower');
 
 var BASE_NAME = 'W4N9';
@@ -16,18 +19,19 @@ function addMOVE(body) {
 
 var colonyTargets = [
     // TODO(baptr): Bootstrap fallback
-    {role: "harvester", body: addMOVE([WORK, CARRY]), target: 1,
-        memory: {source: "e1620773914ad5a"}},
-    // remote W1C4 = 1750
+    {role: "harvester", body: addMOVE([WORK, CARRY]), target: 1, memory: {source: "e1620773914ad5a"}},
     {role: "remoteHarvester", subtype: "_W5N9", body: addMOVE([WORK, WORK, CARRY, CARRY, CARRY, CARRY]), target: 2, 
         memory: remoteHarvester.new("W5N9", 'f43107732c09317')},
     {role: "harvester", subtype: "_big", body: addMOVE([WORK, WORK, WORK, CARRY, CARRY, CARRY]), target: 2,
         memory: {source: "e1620773914ad5a"}},
     {role: "upgrader", body: [WORK, WORK, WORK, WORK, WORK, WORK, CARRY, MOVE], target: 2,
         memory: {source: "e218077391460aa"}},
-    {role: "builder", body: addMOVE([WORK, WORK, CARRY, CARRY, CARRY, CARRY]), target: 3,
+    {role: "builder", body: addMOVE([WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY]), target: 2,
         memory: {container: "5b3e8add5676c340a95d3ac1"}},
+    {role: "miner", body: addMOVE([WORK, WORK, WORK, WORK, CARRY]), target: 1,
+        memory: {source: "7ec06164d63658d", store: "5b408f605676c340a95e55b6"}},
 ];
+var remoteUpgraderBody = Array(6).fill(WORK).concat(Array(6).fill(CARRY), Array(12).fill(MOVE));
 var buildThreshold = 250; // TODO(baptr): calculate
 
 function bodyCost(body) {
@@ -85,15 +89,19 @@ module.exports.loop = function () {
                 var cost = bodyCost(kind.body);
                 if(cost > room.energyAvailable) {
                     buildingSay(spawn, room.energyAvailable+'<'+cost);
-                    //console.log("Cost to spawn "+newName+" with body: "+kind.body+" is "+cost+" > "+room.energyAvailable);
                     return false; // Might be able to spawn something less important, but we should save up.
                 }
                 var ret = spawn.spawnCreep(kind.body, newName, {memory: mem});
                 buildingSay(spawn, targets.length+'/'+kind.target+' '+id);
-                //console.log('Only '+targets.length+' '+id+', spawning up to '+kind.target+': '+ret);
                 return false;
             }
         })
+        
+        // TODO(baptr): Work this in to the normal hash.
+        if(room.energyAvailable > bodyCost(remoteUpgraderBody)) {
+            spawn.spawnCreep(remoteUpgraderBody, 'remoteUpgrader_W5N9_'+Game.time, {memory: 
+                {role: 'relocater', subtype: '_W5N9', reloRoom: 'W5N9', reloNextRole: 'upgrader'}})
+        }
     }
     
     if(Game.spawns['Spawn1'].spawning) { 
@@ -124,6 +132,15 @@ module.exports.loop = function () {
             break;
         case 'defender':
             roleDefender.run(creep);
+            break;
+        case 'claimer':
+            roleClaimer.run(creep);
+            break;
+        case 'relocater':
+            roleRelocater.run(creep);
+            break;
+        case 'miner':
+            roleMiner.run(creep);
             break;
         default:
             console.log(name + " has no known role ("+creep.memory.role+")");

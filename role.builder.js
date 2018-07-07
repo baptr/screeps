@@ -45,7 +45,9 @@ module.exports = {
                     creep.memory.source = source.id;
                 }
                 if(creep.harvest(source) == ERR_NOT_IN_RANGE) {
-                    creep.moveTo(source);
+                    if(creep.moveTo(source) == ERR_NO_PATH) {
+                        delete creep.memory.source; // TODO(baptr): Count a few times first?
+                    }
                 }
             }
 	    }
