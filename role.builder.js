@@ -1,8 +1,5 @@
 module.exports = {
     run: function(creep) {
-        if(creep.ticksToLive == 1) {
-            console.log(creep.name + ' lifetime achievement: '+creep.memory.delivered);
-        }
 	    if(!creep.memory.filling && creep.carry.energy == 0) {
             creep.memory.filling = true;
             delete creep.memory.source;
@@ -33,7 +30,7 @@ module.exports = {
 	        }
 	    } else {
 	        var container = Game.getObjectById(creep.memory.container);
-            if(container && container.store[RESOURCE_ENERGY] > 500) {
+            if(container && container.structureType == STRUCTURE_CONTAINER && container.store[RESOURCE_ENERGY] > 500) {
                 if(creep.withdraw(container, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
                     creep.moveTo(container);
                 }

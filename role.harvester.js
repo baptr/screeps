@@ -19,10 +19,6 @@ function fillSort(a, b) {
 // roleHarvester
 module.exports = {
     run: function(creep) {
-        if(creep.ticksToLive == 1) {
-            console.log(creep.name + ' lifetime achievement: ' + creep.memory.delivered);
-        }
-        
         if(!creep.memory.filling && creep.carry.energy == 0) {
             creep.memory.filling = true;
             creep.say('Refill');
@@ -56,7 +52,7 @@ module.exports = {
                 });
                 var priorityBuckets = _.groupBy(targets, (s) => fillPriority[s.structureType]);
                 // XXX ensure we're using the highest priority bucket
-                for(bucket in priorityBuckets) {
+                for(var bucket in priorityBuckets) {
                     target = creep.pos.findClosestByPath(priorityBuckets[bucket]);
                     if(target) {
                         break;

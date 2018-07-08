@@ -27,6 +27,9 @@ module.exports = {
             case ERR_TIRED:
                 // TODO(baptr): Wait for cooldown?
                 break;
+            case ERR_BUSY:
+                // Not sure why this triggers early.
+                break;
             case OK:
                 // TODO(baptr): Accounting.
                 break;

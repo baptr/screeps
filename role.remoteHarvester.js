@@ -8,9 +8,6 @@ module.exports = {
         }
     },
     run: function(creep) {
-        if(creep.ticksToLive == 1) {
-            console.log(creep.name + ' lifetime achievements: '+creep.memory.delivered);
-        }
         if(creep.memory.filling && creep.carry.energy == creep.carryCapacity) {
             creep.say('Delivery');
             creep.memory.filling = false;
@@ -44,7 +41,7 @@ module.exports = {
                 if(creep.room != spawn.room) {
                     // TODO(baptr): Make this less expensive.
                     var t = creep.pos.findClosestByPath(FIND_MY_STRUCTURES, {filter: (s) =>
-                        s.structureType == STRUCTURE_TOWER && s.energy < 450
+                        s.structureType == STRUCTURE_TOWER && s.energy < 650
                     });
                     if(t) {
                         if(creep.transfer(t, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {

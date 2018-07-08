@@ -6,7 +6,7 @@ module.exports = {
             tower.attack(closestHostile);
         }
         
-        if(tower.energy > 500) { // Save up some for defense.
+        if(tower.energy > 700) { // Save up some for defense.
             var closestDamagedStructure = tower.pos.findClosestByRange(FIND_STRUCTURES, {
                 filter: (structure) => structure.hits / structure.hitsMax < 0.95
             });

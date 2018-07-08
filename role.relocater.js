@@ -14,7 +14,7 @@ module.exports = {
             creep.memory.role = newRole;
             delete creep.memory.reloRoom;
             delete creep.memory.reloNextRole;
-            delete creep.memory.roleExit;
+            delete creep.memory.reloExit;
             return;
         }
         var exit = creep.memory.reloExit;

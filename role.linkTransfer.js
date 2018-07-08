@@ -13,7 +13,7 @@ module.exports = {
         // Mostly work.
         // Only really useful in pairs, so don't spend everything all at once??
         var availableEng = spawn.room.energyAvailable;
-        var body = [MOVE, CARRY, WORK];
+        var body = [MOVE, CARRY, CARRY, WORK];
         availableEng -= bodyCost(body);
         // Try 2:1 WORK:MOVE to start, since they need to travel fairly far for
         // setup?
@@ -53,6 +53,9 @@ module.exports = {
                 break;
             case OK:
                 break;
+            case ERR_NOT_ENOUGH_ENERGY:
+                creep.memory.filling = true;
+                break;
             case ERR_FULL:
                 // TODO(baptr): Some other fallback?
                 // Let it transfer
@@ -60,6 +63,7 @@ module.exports = {
             default:
                 console.log(`${creep.name} unrecognized transfer failure to ${dest}: ${ret}`);
             }
+            if(!dest) { return false; }
             if(dest.structureType == STRUCTURE_LINK && dest.energy == dest.energyCapacity) {
                 var sink = Game.getObjectById(creep.memory.sink);
                 dest.transferEnergy(sink);

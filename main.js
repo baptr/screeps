@@ -11,7 +11,9 @@ var roleTransfer = require('role.linkTransfer');
 
 var roleTower = require('role.tower');
 
-var BASE_NAME = 'W4N9';
+const SPAWN_NAME = 'Spawn1';
+const BASE_NAME = Game.spawns[SPAWN_NAME].room.name; // 'W4N9';
+const DUMP_COSTS = false;
 console.log('Reloading');
 
 function addMOVE(body) {
@@ -20,7 +22,7 @@ function addMOVE(body) {
 }
 
 var colonyTargets = [
-    // TODO(baptr): Bootstrap fallback
+    // TODO(baptr): Auto-downscale these for initial setup.
     {role: "harvester", body: addMOVE([WORK, CARRY]), target: 1, memory: {source: "e1620773914ad5a"}},
     {role: "remoteHarvester", subtype: "_W5N9", body: addMOVE([WORK, WORK, CARRY, CARRY, CARRY, CARRY]), target: 2, 
         memory: remoteHarvester.new("W5N9", 'f43107732c09317')},
@@ -34,6 +36,11 @@ var colonyTargets = [
         memory: {source: "7ec06164d63658d", store: "5b408f605676c340a95e55b6"},
         condition: roleMiner.spawnCondition,
     },
+    {role: "linkTransfer", dynSpawn: function(spawn) { 
+        roleTransfer.spawn(spawn, Game.getObjectById(roleTransfer.pocketSrc), Game.getObjectById(roleTransfer.controllerLink));
+    }, condition: function(room) { 
+        return !_.some(Game.creeps, (c) => c.my && c.memory.reloNextRole == 'linkTransfer');
+    }, target: 1},
 ];
 var remoteUpgraderBody = Array(6).fill(WORK).concat(Array(6).fill(CARRY), Array(12).fill(MOVE));
 var buildThreshold = 250; // TODO(baptr): calculate
@@ -50,12 +57,14 @@ function buildingSay(struct, text) {
         {align: 'left', opacity: 0.8});
 }
 
-_.forEach(colonyTargets, t => {
-    var cost = bodyCost(t.body);
-    var id = "role " + t.role;
-    if(t.subtype) { id += t.subtype }
-    console.log(id + " costs " + cost);
-});
+if(DUMP_COSTS) {
+    _.forEach(colonyTargets, t => {
+        var cost = bodyCost(t.body);
+        var id = "role " + t.role;
+        if(t.subtype) { id += t.subtype }
+        console.log(id + " costs " + cost);
+    });
+}
 
 module.exports.loop = function () {
     var room = Game.rooms[BASE_NAME];
@@ -64,11 +73,16 @@ module.exports.loop = function () {
         var lost = [];
         for(var name in Memory.creeps) {
             if(!Game.creeps[name]) {
-                lost.push(name);
+                var plaque = name;
+                var achievement = Memory.creeps[name].delivered;
+                if(achievement) {
+                    plaque += ' (delivered '+achievement+')';
+                }
+                lost.push(plaque)
                 delete Memory.creeps[name];
             }
         }
-        if(lost.length) { console.log('Lost: '+lost); }
+        if(lost.length) { console.log('Lost '+lost); }
         
         // Spawn checks...
         var spawn = Game.spawns['Spawn1'];
@@ -88,6 +102,10 @@ module.exports.loop = function () {
             }
             if(kind.condition && !kind.condition(room)) {
                 return;
+            }
+            if(kind.dynSpawn) {
+                kind.dynSpawn(spawn);
+                return false;
             }
             var id = kind.role;
             if(kind.subtype) { id += kind.subtype }
