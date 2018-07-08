@@ -5,9 +5,9 @@ module.exports = {
         }
 	    if(!creep.memory.filling && creep.carry.energy == 0) {
             creep.memory.filling = true;
+            delete creep.memory.source;
             creep.say('🔄 harvest');
-	    }
-	    if(creep.memory.filling && creep.carry.energy == creep.carryCapacity) {
+	    } else if(creep.memory.filling && creep.carry.energy == creep.carryCapacity) {
 	        creep.memory.filling = false;
 	        creep.say('🚧 build');
 	    }

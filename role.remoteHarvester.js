@@ -42,6 +42,16 @@ module.exports = {
             if(!dest || dest.energy == dest.energyCapacity) {
                 var spawn = Game.spawns['Spawn1'];
                 if(creep.room != spawn.room) {
+                    // TODO(baptr): Make this less expensive.
+                    var t = creep.pos.findClosestByPath(FIND_MY_STRUCTURES, {filter: (s) =>
+                        s.structureType == STRUCTURE_TOWER && s.energy < 450
+                    });
+                    if(t) {
+                        if(creep.transfer(t, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+                            creep.moveTo(t);
+                            return true;
+                        }
+                    }
                     // XXX suboptimal if the extensions aren't in the same area
                     // as the spawn.
                     creep.moveTo(spawn);

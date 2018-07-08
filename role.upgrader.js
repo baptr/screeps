@@ -16,6 +16,20 @@ module.exports = {
                 creep.moveTo(creep.room.controller, {visualizePathStyle: {stroke: '#ffffff'}});
             }
         } else {
+            var container = Game.getObjectById(creep.memory.container);
+            if(container && container.energy > 0) { // TODO(baptr): handle non-link containers...
+                var ret = creep.withdraw(container, RESOURCE_ENERGY);
+                switch(ret) {
+                case OK:
+                    break;
+                case ERR_NOT_IN_RANGE:
+                    creep.moveTo(container);
+                    return;
+                    break;
+                default:
+                    console.log(`${name} failed to withdraw from ${container}: ${ret}`);
+                }
+            }
             var source = Game.getObjectById(creep.memory.source);
             if(!source) {
                 source = creep.room.controller.pos.findClosestByPath(FIND_SOURCES);

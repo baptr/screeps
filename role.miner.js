@@ -1,5 +1,11 @@
 module.exports = {
+    spawnCondition: function(room) { 
+        var minerals = room.find(FIND_MINERALS);
+        return _.sum(_.map(minerals, 'mineralAmount'));
+    },
     run: function(creep) {
+        if(creep.memory.fallback) { return false; } // TODO(baptr): Some way to return to this?
+        
         if(creep.memory.filling && _.sum(creep.carry) == creep.carryCapacity) {
             creep.memory.filling = false;
         } else if(!creep.memory.filling && _.sum(creep.carry) == 0) {
@@ -8,10 +14,24 @@ module.exports = {
         
         if(creep.memory.filling) {
             var src = Game.getObjectById(creep.memory.source);
-            // TODO(baptr): Wait on cooldown?
             var ret = creep.harvest(src);
-            if(creep.harvest(src) == ERR_NOT_IN_RANGE) {
+            switch(ret) {
+            case ERR_NOT_IN_RANGE:
                 creep.moveTo(src);
+                break;
+            case ERR_NOT_ENOUGH_RESOURCES:
+                delete creep.memory.source;
+                creep.memory.fallback = true;
+                return false;
+                break;
+            case ERR_TIRED:
+                // TODO(baptr): Wait for cooldown?
+                break;
+            case OK:
+                // TODO(baptr): Accounting.
+                break;
+            default:
+                console.log(`Unrecognized ${creep.name} harvest failure: ${ret}`);
             }
         } else {
             var dest = Game.getObjectById(creep.memory.store);

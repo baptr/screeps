@@ -7,6 +7,8 @@ var roleDefender = require('role.defender');
 var roleClaimer = require('role.claimer');
 var roleRelocater = require('role.relocater');
 var roleMiner = require('role.miner');
+var roleTransfer = require('role.linkTransfer');
+
 var roleTower = require('role.tower');
 
 var BASE_NAME = 'W4N9';
@@ -29,7 +31,9 @@ var colonyTargets = [
     {role: "builder", body: addMOVE([WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY]), target: 2,
         memory: {container: "5b3e8add5676c340a95d3ac1"}},
     {role: "miner", body: addMOVE([WORK, WORK, WORK, WORK, CARRY]), target: 1,
-        memory: {source: "7ec06164d63658d", store: "5b408f605676c340a95e55b6"}},
+        memory: {source: "7ec06164d63658d", store: "5b408f605676c340a95e55b6"},
+        condition: roleMiner.spawnCondition,
+    },
 ];
 var remoteUpgraderBody = Array(6).fill(WORK).concat(Array(6).fill(CARRY), Array(12).fill(MOVE));
 var buildThreshold = 250; // TODO(baptr): calculate
@@ -79,28 +83,34 @@ module.exports.loop = function () {
         var kinds = _.groupBy(Game.creeps, creep => creep.memory.role+creep.memory.subtype);
         _.forEach(colonyTargets, kind => {
             var targets = kinds[kind.role+kind.subtype] || [];
-            if(targets.length < kind.target) {
-                var id = kind.role;
-                if(kind.subtype) { id += kind.subtype }
-                var newName = id + '_' + Game.time;
-                var mem = kind.memory || {};
-                mem.role = kind.role;
-                mem.subtype = kind.subtype;
-                var cost = bodyCost(kind.body);
-                if(cost > room.energyAvailable) {
-                    buildingSay(spawn, room.energyAvailable+'<'+cost);
-                    return false; // Might be able to spawn something less important, but we should save up.
-                }
-                var ret = spawn.spawnCreep(kind.body, newName, {memory: mem});
-                buildingSay(spawn, targets.length+'/'+kind.target+' '+id);
-                return false;
+            if(targets.length >= kind.target) {
+                return;
             }
+            if(kind.condition && !kind.condition(room)) {
+                return;
+            }
+            var id = kind.role;
+            if(kind.subtype) { id += kind.subtype }
+            var newName = id + '_' + Game.time;
+            var mem = kind.memory || {};
+            mem.role = kind.role;
+            mem.subtype = kind.subtype;
+            var cost = bodyCost(kind.body);
+            if(cost > room.energyAvailable) {
+                buildingSay(spawn, room.energyAvailable+'<'+cost);
+                return false; // Might be able to spawn something less important, but we should save up.
+            }
+            var ret = spawn.spawnCreep(kind.body, newName, {memory: mem});
+            buildingSay(spawn, targets.length+'/'+kind.target+' '+id);
+            return false;
         })
         
         // TODO(baptr): Work this in to the normal hash.
-        if(room.energyAvailable > bodyCost(remoteUpgraderBody)) {
+        if(room.energyAvailable > bodyCost(remoteUpgraderBody) && (kinds['upgrader_W5N9'] || []).length < 2) {
             spawn.spawnCreep(remoteUpgraderBody, 'remoteUpgrader_W5N9_'+Game.time, {memory: 
-                {role: 'relocater', subtype: '_W5N9', reloRoom: 'W5N9', reloNextRole: 'upgrader'}})
+                {role: 'relocater', subtype: '_W5N9', reloRoom: 'W5N9', reloNextRole: 'upgrader',
+                    container: '5b4120c35676c340a95ea8f9'
+                }})
         }
     }
     
@@ -140,7 +150,12 @@ module.exports.loop = function () {
             roleRelocater.run(creep);
             break;
         case 'miner':
-            roleMiner.run(creep);
+            if(roleMiner.run(creep) === false) {
+                roleRepairer.run(creep);
+            }
+            break;
+        case 'linkTransfer':
+            roleTransfer.run(creep);
             break;
         default:
             console.log(name + " has no known role ("+creep.memory.role+")");

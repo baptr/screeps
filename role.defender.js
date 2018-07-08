@@ -38,7 +38,10 @@ module.exports = {
         }
         
         var enemy = creep.pos.findClosestByPath(FIND_HOSTILE_CREEPS);
-        if(!enemy) { return false }
+        if(!enemy) {
+             // TODO(baptr): It would be nice to pick up resources, but these have no carry.
+            return false;
+        }
         creep.say('Yarrrrr', true);
         if(creep.rangedAttack(enemy) == ERR_NOT_IN_RANGE) {
             creep.moveTo(enemy);

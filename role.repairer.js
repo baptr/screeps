@@ -18,6 +18,7 @@ module.exports = {
                 var source = Game.getObjectById(creep.memory.source);
                 if(!source) {
                     source = creep.pos.findClosestByPath(FIND_SOURCES);
+                    if(!source) { return false }
                     creep.memory.source = source.id;
                 }
                 if(creep.harvest(source) == ERR_NOT_IN_RANGE) {
