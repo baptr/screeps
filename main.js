@@ -9,7 +9,15 @@ var roleRelocater = require('role.relocater');
 var roleMiner = require('role.miner');
 var roleTransfer = require('role.linkTransfer');
 
+var roleBob = require('role.bob');
+var bootstrapper = require('role2.bootstrapper');
+var dropHarvester = require('role2.dropHarvester');
+var pathing = require('pathing');
+
 var roleTower = require('role.tower');
+
+var roomPlanner = require('roomPlanner');
+var util = require('util');
 
 const SPAWN_NAME = 'Spawn1';
 const BASE_NAME = Game.spawns[SPAWN_NAME].room.name; // 'W4N9';
@@ -30,11 +38,15 @@ var colonyTargets = [
         memory: {source: "e1620773914ad5a"}},
     {role: "upgrader", body: [WORK, WORK, WORK, WORK, WORK, WORK, CARRY, MOVE], target: 2,
         memory: {source: "e218077391460aa"}},
-    {role: "builder", body: addMOVE([WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY]), target: 2,
+    {role: "builder", body: addMOVE([WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY]), target: 2,
         memory: {container: "5b3e8add5676c340a95d3ac1"}},
-    {role: "miner", body: addMOVE([WORK, WORK, WORK, WORK, CARRY]), target: 1,
+    {role: "miner", body: addMOVE([WORK, WORK, WORK, WORK, CARRY]), target: 0,
         memory: {source: "7ec06164d63658d", store: "5b408f605676c340a95e55b6"},
         condition: roleMiner.spawnCondition,
+    },
+    {role: "miner", subtype: "_W5N9", body: addMOVE([WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY]), target: 0,
+        memory: roleRelocater.setMem({source: '9ef56164d4b4ba0', store: '5b408f605676c340a95e55b6'}, 'W5N9', 'miner'),
+        condition: function(r) { return roleMiner.spawnCondition(Game.rooms.W5N9) },
     },
     {role: "linkTransfer", dynSpawn: function(spawn) { 
         roleTransfer.spawn(spawn, Game.getObjectById(roleTransfer.pocketSrc), Game.getObjectById(roleTransfer.controllerLink));
@@ -44,10 +56,6 @@ var colonyTargets = [
 ];
 var remoteUpgraderBody = Array(6).fill(WORK).concat(Array(6).fill(CARRY), Array(12).fill(MOVE));
 var buildThreshold = 250; // TODO(baptr): calculate
-
-function bodyCost(body) {
-    return _.sum(_.map(body, e => BODYPART_COST[e]));
-}
 
 function buildingSay(struct, text) {
     struct.room.visual.text(
@@ -59,14 +67,31 @@ function buildingSay(struct, text) {
 
 if(DUMP_COSTS) {
     _.forEach(colonyTargets, t => {
-        var cost = bodyCost(t.body);
+        var cost = util.bodyCost(t.body);
         var id = "role " + t.role;
         if(t.subtype) { id += t.subtype }
         console.log(id + " costs " + cost);
     });
 }
 
+function runW5N8() {
+    var room = Game.rooms.W5N8;
+    roomPlanner.run(room);
+    if(false) { // TODO(baptr): Find a better toggle, or just leave it on. It's not that expensive.
+        pathing.swampCheck(Game.flags.Flag1.pos, Game.flags.Flag2.pos);
+    }
+}
+function runW4N8() {
+    var room = Game.rooms.W4N8;
+    if(!room) return;
+    roomPlanner.run(room);
+}
+
 module.exports.loop = function () {
+    runW5N8();
+    runW4N8();
+    // TODO(baptr): Set up better lab control.
+    // Game.getObjectById('5b4318745676c340a95fda83').runReaction(Game.getObjectById('5b4325e05676c340a95fe2d5'), Game.getObjectById('5b40a53a5676c340a95e62df'));
     var room = Game.rooms[BASE_NAME];
     // Periodic cleanup
     if(room.energyAvailable >= buildThreshold && Game.time % 20 == 0) {
@@ -94,7 +119,7 @@ module.exports.loop = function () {
             roleDefender.spawn(spawn, {});
         }
         
-        var kinds = _.groupBy(Game.creeps, creep => creep.memory.role+creep.memory.subtype);
+        var kinds = _.groupBy(Game.creeps, creep => (creep.memory.reloNextRole || creep.memory.role)+creep.memory.subtype);
         _.forEach(colonyTargets, kind => {
             var targets = kinds[kind.role+kind.subtype] || [];
             if(targets.length >= kind.target) {
@@ -111,9 +136,9 @@ module.exports.loop = function () {
             if(kind.subtype) { id += kind.subtype }
             var newName = id + '_' + Game.time;
             var mem = kind.memory || {};
-            mem.role = kind.role;
+            if(!mem.role) { mem.role = kind.role; }
             mem.subtype = kind.subtype;
-            var cost = bodyCost(kind.body);
+            var cost = util.bodyCost(kind.body);
             if(cost > room.energyAvailable) {
                 buildingSay(spawn, room.energyAvailable+'<'+cost);
                 return false; // Might be able to spawn something less important, but we should save up.
@@ -124,7 +149,7 @@ module.exports.loop = function () {
         })
         
         // TODO(baptr): Work this in to the normal hash.
-        if(room.energyAvailable > bodyCost(remoteUpgraderBody) && (kinds['upgrader_W5N9'] || []).length < 2) {
+        if(room.energyAvailable > util.bodyCost(remoteUpgraderBody) && (kinds['upgrader_W5N9'] || []).length < 2) {
             spawn.spawnCreep(remoteUpgraderBody, 'remoteUpgrader_W5N9_'+Game.time, {memory: 
                 {role: 'relocater', subtype: '_W5N9', reloRoom: 'W5N9', reloNextRole: 'upgrader',
                     container: '5b4120c35676c340a95ea8f9'
@@ -151,7 +176,9 @@ module.exports.loop = function () {
         case 'builder':
             if(roleBuilder.run(creep) === false) {
                 if(roleRepairer.run(creep) === false) {
-                    roleHarvester.run(creep);
+                    if(roleHarvester.run(creep) === false) {
+                        roleUpgrader.run(creep);
+                    };
                 };
             };
             break;
@@ -174,6 +201,15 @@ module.exports.loop = function () {
             break;
         case 'linkTransfer':
             roleTransfer.run(creep);
+            break;
+        case 'bob':
+            roleBob.run(creep);
+            break;
+        case 'bootstrapper':
+            bootstrapper.run(creep);
+            break;
+        case dropHarvester.ROLE:
+            dropHarvester.run(creep);
             break;
         default:
             console.log(name + " has no known role ("+creep.memory.role+")");

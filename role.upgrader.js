@@ -12,8 +12,13 @@ module.exports = {
 	    }
 
 	    if(!creep.memory.filling) {
-            if(creep.upgradeController(creep.room.controller) == ERR_NOT_IN_RANGE) {
+            switch(creep.upgradeController(creep.room.controller)) {
+            case ERR_NOT_IN_RANGE:
                 creep.moveTo(creep.room.controller, {visualizePathStyle: {stroke: '#ffffff'}});
+                break;
+            case OK:
+                var delivery = creep.getActiveBodyparts(WORK) * UPGRADE_CONTROLLER_POWER;
+                creep.memory.delivered += Math.min(delivery, creep.carry.energy);
             }
         } else {
             var container = Game.getObjectById(creep.memory.container);
@@ -36,7 +41,6 @@ module.exports = {
                     case ERR_NOT_IN_RANGE:
                         creep.moveTo(container);
                         return;
-                        break;
                     default:
                         console.log(`${name} failed to withdraw from ${container}: ${ret}`);
                     }

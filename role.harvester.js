@@ -5,6 +5,7 @@ function energyNeeded(struct) {
 var fillPriority = {
     extension: 1,
     spawn: 1,
+    lab: 4,
     tower: 5,
     container: 10
 };
@@ -65,6 +66,9 @@ module.exports = {
             case ERR_NOT_IN_RANGE:
                 creep.moveTo(target, {visualizePathStyle: {stroke: '#ffffff'}});
                 break;
+            case ERR_FULL:
+                delete creep.memory.fillTarget;
+                return;
             case OK:
                 creep.memory.delivered += Math.min(creep.carry.energy, energyNeeded(target));
             }

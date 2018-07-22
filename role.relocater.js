@@ -1,9 +1,12 @@
 // dummy role that moves between rooms before switching to a new role
+// example:
+// Game.spawns.Spawn2.spawnCreep([WORK, WORK, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE], 'relo-builder', {memory: relocator.setMem({}, 'W4N8', 'builder')})
 module.exports = {
-    setMem: function(mem, room, nextRole) {
+    setMem: function(mem, roomName, nextRole) {
         mem.role = 'relocater';
-        mem.reloRoom = room;
+        mem.reloRoom = roomName;
         mem.reloNextRole = nextRole;
+        return mem;
     },
     run: function(creep) {
         var tgt = creep.memory.reloRoom;

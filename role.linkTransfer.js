@@ -1,9 +1,5 @@
 var relo = require('role.relocater');
-
-// TODO(baptr): Factor these into a util module.
-function bodyCost(body) {
-    return _.sum(_.map(body, e => BODYPART_COST[e]));
-}
+var util = require('util');
 
 module.exports = {
     controllerLink: '5b4120c35676c340a95ea8f9',
@@ -14,11 +10,11 @@ module.exports = {
         // Only really useful in pairs, so don't spend everything all at once??
         var availableEng = spawn.room.energyAvailable;
         var body = [MOVE, CARRY, CARRY, WORK];
-        availableEng -= bodyCost(body);
+        availableEng -= util.bodyCost(body);
         // Try 2:1 WORK:MOVE to start, since they need to travel fairly far for
         // setup?
-        const workUnit = [WORK, WORK, MOVE];
-        const workCost = bodyCost(workUnit);
+        const workUnit = [WORK, WORK, WORK, CARRY, MOVE, MOVE];
+        const workCost = util.bodyCost(workUnit);
         while(availableEng > workCost) {
             body = body.concat(workUnit);
             availableEng -= workCost;

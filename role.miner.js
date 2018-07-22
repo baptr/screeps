@@ -1,5 +1,5 @@
 module.exports = {
-    spawnCondition: function(room) { 
+    spawnCondition: function(room) {
         var minerals = room.find(FIND_MINERALS);
         return _.sum(_.map(minerals, 'mineralAmount'));
     },
