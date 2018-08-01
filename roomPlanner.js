@@ -1,20 +1,24 @@
 var bootstrapper = require('role2.bootstrapper');
 var dropHarvester = require('role2.dropHarvester');
 var pathing = require('pathing');
+var roleDefender = require('role.defender');
 //var util = require('util');
 
 /* TODOs:
+ - Harvest minerals.
+   - Return them to base?
  - Extend bootstrappers to be more carry-heavy.
  - Save up before spawning a bootstrapper if available < capacity and there are other delivery drones around.
  - Better tune bootstrapper -> dropHarvester spawn strategy.
 */
 
+const ROAD_DESTS = [STRUCTURE_SPAWN, STRUCTURE_CONTROLLER, STRUCTURE_EXTRACTOR];
+
 function planRoads(room) {
-    // Check how much roads would improve routes from spawn <-> sources, and
-    // sources <-> controller (for now).
+    // Check how much roads would improve routes between high-traffic nodes.
     var sources = room.find(FIND_SOURCES);
     var dests = room.find(FIND_STRUCTURES, {
-        filter: s => s.structureType == STRUCTURE_SPAWN || s.structureType == STRUCTURE_CONTROLLER,
+        filter: s => ROAD_DESTS.includes(s.structureType),
     });
     
     const pathMatrix = pathing.roomCallback(room.name);
@@ -23,7 +27,14 @@ function planRoads(room) {
     var ret = [];
     for(var i = 0; i < all.length; i++) {
         for(var j = i+1; j < all.length; j++) {
-            ret.push(...pathing.swampCheck(all[i].pos, all[j].pos, pathMatrix));
+            // TODO(baptr): Plan roads after each pass, and update the matrix
+            // accordingly.
+            var from = all[i];
+            var to = all[j];
+            if(from instanceof StructureController) {
+                [from, to] = [to, from];
+            }
+            ret.push(...pathing.swampCheck(from.pos, to.pos, pathMatrix));
         }
     }
     _.forEach(ret, p => room.createConstructionSite(p, STRUCTURE_ROAD));
@@ -100,12 +111,7 @@ function planBuilding(pos, type) {
     }
     var [numBld, maxBld] = numBuilding(room, type);
     if(numBld >= maxBld) { return; }
-    
-    /*
-    const spawn = room.find(FIND_MY_SPAWNS)[0];
-    if(!spawn) { return; }
-    */
-    
+
     // TODO(baptr): Should really test path distance from sources, not linear
     // distance from spawn...
     for(var radius = 1; radius < 7; radius++) { // TODO(baptr): memoize minumum
@@ -141,19 +147,36 @@ function planBuilding(pos, type) {
     }
 }
 
+function planMining(room) {
+    var [numExt, maxExt] = numBuilding(room, STRUCTURE_EXTRACTOR);
+    // TODO(baptr): Do more than just placing extractors.
+    if(numExt >= maxExt) { return }
+    const minerals = room.find(FIND_MINERALS);
+    _.forEach(minerals, m => {
+        room.createConstructionSite(m.pos, STRUCTURE_EXTRACTOR);
+    });
+}
+
 module.exports = {
     run: function(room) {
-        // TODO(baptr): Only do this when room control level changes,
-        // or scale out the time further.
         var spawn = room.find(FIND_MY_SPAWNS)[0];
         if(!spawn) {
             if(Game.time % 100 == 0) console.log("Awaiting spawn in "+room.name);
             return;
         }
+        if(room.find(FIND_HOSTILE_CREEPS).length > 0) {
+            roleDefender.spawn(spawn, {});
+            return;
+        }
+        // TODO(baptr): Only do this when room control level changes,
+        // or scale out the time further.
+        // TOOD(baptr): Should also splay these between rooms to smooth CPU
+        // spikes.
         if(Game.time % 1000 == 0) {
             planBuilding(spawn.pos, STRUCTURE_EXTENSION);
             planBuilding(spawn.pos, STRUCTURE_TOWER);
             planRoads(room);
+            planMining(room);
         }
         //spacesNear(spawn.pos, 40);
         

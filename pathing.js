@@ -1,10 +1,14 @@
+/* TODOs:
+   - Treat planned roads as cheaper during multiple passes.
+*/
+
 function roomCallback(roomName) {
     const room = Game.rooms[roomName];
     var out = new PathFinder.CostMatrix();
     if(!room) {
         return out;
     }
-    var obstacles = room.find(FIND_STRUCTURES);
+    var obstacles = room.find(FIND_STRUCTURES).concat(room.find(FIND_CONSTRUCTION_SITES));
     _.forEach(obstacles, s => {
         if(OBSTACLE_OBJECT_TYPES.includes(s.structureType)) {
             out.set(s.pos.x, s.pos.y, 255);
@@ -30,7 +34,13 @@ swampCheck: function(src, dest, roomMatrix=null) {
         vis = new RoomVisual(src.roomName);
     }
     // TODO(baptr): Safe to always assume range: 1? I think so.
-    var res = PathFinder.search(src, {pos: dest, range: 1}, {roomCallback: () => roomMatrix, swampCost: 2, maxRooms: 1});
+    // Should be even further for controllers, since they have 3 upgrade range.
+    // TODO(baptr): Doesn't handle return trips from controllers...
+    var range = 1;
+    if(dest instanceof StructureController) {
+        range = 3;
+    }
+    var res = PathFinder.search(src, {pos: dest, range: range}, {roomCallback: () => roomMatrix, swampCost: 2, maxRooms: 1});
     var ret = [];
     var cloneMatrix = roomMatrix.clone();
     // TODO(baptr): can't short-cut the first pass on swamp traversal.

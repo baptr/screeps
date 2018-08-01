@@ -7,6 +7,8 @@ var util = require('util');
 //
 // TODO(baptr): When dropping on the ground, pickup creeps get confused because
 // the resource ID flaps.
+// TODO(baptr): Is it actually better to time it perfectly, or to drain the
+// the source as fast as possible? Slow and steady means more waiting...
 const ROLE = 'dropHarvester';
 module.exports = {
 // XXX room vs spawn
@@ -16,7 +18,7 @@ spawnCondition: function(room, roomKinds) {
 spawn: function(spawn) {
     var room = spawn.room;
     const availEnergy = room.energyAvailable;
-    if(availEnergy < MIN_HARVESTER_COST) { return false; }
+    if(availEnergy < MIN_HARVESTER_COST || spawn.spawning) { return false; }
     
     var targetSource = pickSource(room);
     if(!targetSource) { return; }   
@@ -37,7 +39,9 @@ spawn: function(spawn) {
         role: ROLE,
         src: targetSource.id,
     }});
-    console.log(`Spawning ${name} (${body}) = ${ret}`);
+    if(ret != OK) {
+        console.log(`Spawning ${name} (${body}) = ${ret}`);
+    }
 },
 run: function(creep) {
     var src = Game.getObjectById(creep.memory.src);
@@ -80,7 +84,8 @@ run: function(creep) {
         creep.moveTo(src);
         break;
     case OK:
-        // TODO(baptr): accounting
+        // TODO(baptr): This is probably a little fuzzy if multiple are pulling from it when it runs out, but meh.
+        creep.memory.delivered += Math.min(creep.getActiveBodyparts(WORK)*HARVEST_POWER, src.energy);
         break;
     case ERR_NOT_ENOUGH_RESOURCES:
         if(creep.carry.energy > 0 && cont) {

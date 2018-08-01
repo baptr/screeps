@@ -1,7 +1,23 @@
 var util = require('util');
 
+const DEBUG = false;
+
+/* TODOs
+  - Smarter way to keep the controller afloat? (Ticks < 2k works for now...)
+*/
+
 const MIN_BODY = [WORK, CARRY, MOVE];
 const MIN_COST = util.bodyCost(MIN_BODY);
+
+const BUILD_STRUCTS = [
+    STRUCTURE_SPAWN,
+    STRUCTURE_EXTENSION,
+    // TODO(baptr): Leave these for regular builders?
+    STRUCTURE_TOWER,
+    STRUCTURE_CONTAINER,
+    STRUCTURE_ROAD,
+    STRUCTURE_EXTRACTOR,
+];
 
 // "Balanced" type (role.bootstrap):
 // - ((WORK, CARRY, MOVE) + MOVE) * N
@@ -9,20 +25,25 @@ const MIN_COST = util.bodyCost(MIN_BODY);
 module.exports = {
 spawnCondition: function(spawn, roomKinds) {
     const energyCap = spawn.room.energyCapacityAvailable;
-    var numRole = r => (roomKinds[r] || []).length;
+    const energyAvail = spawn.room.energyAvailable;
+    const numSources = spawn.room.find(FIND_SOURCES).length;
+    const numRole = r => (roomKinds[r] || []).length;
     const numBoots = numRole('bootstrapper');
-    // TODO(baptr): Hardcoded 6/4/2 is too much for a single source room.
-    if(numBoots >= 6) { return false }
+    // Hardcoded 6/4/2 was too much for a single-source room.
+    if(numBoots >= numSources*3) { return false }
     // TODO(baptr): Tune limit before leaving more room for other types.
-    if(energyCap > 1000 && numBoots >= 4) {
+    if(energyCap > 1000 && numBoots >= numSources*2) {
         return false;
     }
-    if(numBoots >= 2 && spawn.room.energyAvailable < 0.9*energyCap) {
+    if(numBoots >= numSources && energyAvail < 0.9*energyCap) {
         return false;
+    }
+    if(DEBUG && !spawn.spawning) {
+        console.log(`OK to spawn bootstrapper in ${spawn.room.name}. ${numBoots} vs ${numSources}. ${energyAvail} < ${energyCap}`);
     }
     return true;
 },
-spawn: function(spawn) {
+spawn: function(spawn, extMem={}) {
     const energyAvailable = spawn.room.energyAvailable;
     if(energyAvailable < MIN_COST || spawn.spawning) { return false; }
     
@@ -45,11 +66,17 @@ spawn: function(spawn) {
     extend([MOVE], limit=1);
     extend([WORK, CARRY, MOVE, MOVE]);
     extend([WORK, MOVE], limit=1);
+    extend([CARRY, MOVE])
+    extend([CARRY]) // TODO(baptr): worth it?
     
+    extMem.role = 'bootstrapper';
     var ret = spawn.spawnCreep(body, 'bootstrapper-'+spawn.room.name+'-'+Game.time, {
-        memory: {role: 'bootstrapper'},
+        memory: extMem,
     });
-    console.log('Spawn attempt for '+body+' : ' + ret);
+    if(ret != OK) {
+        console.log('Spawn attempt for bootstrapper: '+body+' : ' + ret);
+    }
+    return ret;
 },
 // - Deliver for spawning, then build extensions only, then upgrade
 run: function(creep) {
@@ -114,18 +141,23 @@ run: function(creep) {
             creep.memory.dest = dest.id;
         }
         
+        const workParts = creep.getActiveBodyparts(WORK);
+        var effort;
         var ret;
         if(dest instanceof ConstructionSite) {
             ret = creep.build(dest);
+            effort = workParts*BUILD_POWER;
         } else {
             switch(dest.structureType) {
             case STRUCTURE_SPAWN:
             case STRUCTURE_EXTENSION:
             case STRUCTURE_TOWER:
                 ret = creep.transfer(dest, RESOURCE_ENERGY);
+                effort = Math.min(creep.carry.energy, dest.energyCapacity-dest.energy);
                 break;
             case STRUCTURE_CONTROLLER:
                 ret = creep.upgradeController(dest);
+                effort = workParts*UPGRADE_CONTROLLER_POWER;
                 break;
             default:
                 console.log(`${creep.name} unrecognized dest type ${dest.structureType}: ${dest}`);
@@ -152,6 +184,7 @@ run: function(creep) {
         case ERR_BUSY: // Not spawned yet.
             break;
         case OK:
+            creep.memory.delivered += effort;
             break;
         case ERR_RCL_NOT_ENOUGH:
             // Since we're not prioritizing upgrades, if the controller drops
@@ -181,19 +214,14 @@ function findDest(creep) {
     }});
     if(dest) { return dest; }
     
+    if(creep.room.controller.ticksToDowngrade < 2000) {
+        return creep.room.controller;
+    }
+    
     // Spawning build sites.
     // Need priority buckets.
     dest = creep.pos.findClosestByPath(FIND_MY_CONSTRUCTION_SITES, {filter: s => {
-        switch(s.structureType) {
-        case STRUCTURE_SPAWN:
-        case STRUCTURE_EXTENSION:
-        // TODO(baptr): Leave these for regular builders?
-        case STRUCTURE_TOWER:
-        case STRUCTURE_CONTAINER:
-        case STRUCTURE_ROAD:
-            return true
-        }
-        return false;
+        return BUILD_STRUCTS.includes(s.structureType);
     }})
     if(dest) { return dest; }
     

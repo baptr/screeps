@@ -12,7 +12,11 @@ var roleTransfer = require('role.linkTransfer');
 var roleBob = require('role.bob');
 var bootstrapper = require('role2.bootstrapper');
 var dropHarvester = require('role2.dropHarvester');
+var dropMiner = require('role2.miner');
+var carrier = require('role2.carrier');
 var pathing = require('pathing');
+var claimPlanner = require('claimPlanner');
+var labPlanner = require('labPlanner');
 
 var roleTower = require('role.tower');
 
@@ -86,10 +90,18 @@ function runW4N8() {
     if(!room) return;
     roomPlanner.run(room);
 }
+function runW5N3() {
+    var room = Game.rooms.W5N3;
+    if(!room) return;
+    roomPlanner.run(room);
+}
 
 module.exports.loop = function () {
     runW5N8();
     runW4N8();
+    runW5N3();
+    labPlanner.test();
+    claimPlanner.test();
     // TODO(baptr): Set up better lab control.
     // Game.getObjectById('5b4318745676c340a95fda83').runReaction(Game.getObjectById('5b4325e05676c340a95fe2d5'), Game.getObjectById('5b40a53a5676c340a95e62df'));
     var room = Game.rooms[BASE_NAME];
@@ -164,6 +176,9 @@ module.exports.loop = function () {
     
     for(var name in Game.creeps) {
         var creep = Game.creeps[name];
+        // TODO(baptr): Some day I'm going to want to do something while some
+        // role is still spawning, but until then...
+        if(creep.spawning) continue;
         switch(creep.memory.role) {
         case 'harvester':
             if(roleHarvester.run(creep) === false) {
@@ -210,6 +225,12 @@ module.exports.loop = function () {
             break;
         case dropHarvester.ROLE:
             dropHarvester.run(creep);
+            break;
+        case dropMiner.ROLE:
+            dropMiner.run(creep);
+            break;
+        case carrier.ROLE:
+            carrier.run(creep);
             break;
         default:
             console.log(name + " has no known role ("+creep.memory.role+")");

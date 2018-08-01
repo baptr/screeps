@@ -2,6 +2,9 @@
 // example:
 // Game.spawns.Spawn2.spawnCreep([WORK, WORK, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE], 'relo-builder', {memory: relocator.setMem({}, 'W4N8', 'builder')})
 module.exports = {
+    spawn: function(spawn, body, roomName, nextRole, extMem = {}) {
+        
+    },
     setMem: function(mem, roomName, nextRole) {
         mem.role = 'relocater';
         mem.reloRoom = roomName;

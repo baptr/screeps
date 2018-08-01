@@ -10,14 +10,26 @@ module.exports = {
 
         var body = [CLAIM, MOVE];
         var curCost = util.bodyCost(body);
+        
         const extraCost = util.bodyCost([MOVE, MOVE, CARRY, WORK]);
-        while(spawn.room.energyAvailable > curCost+extraCost) {
+        var workCount = 0;
+        while(spawn.room.energyAvailable > curCost+extraCost && workCount < 3) {
             body.push(MOVE, MOVE, CARRY, WORK);
             curCost += extraCost;
+            workCount++;
         }
+        const toughCost = util.bodyCost([MOVE, TOUGH]);
+        while(spawn.room.energyAvailable > curCost+toughCost && body.length+2 <= MAX_CREEP_SIZE) {
+            body.push(MOVE, TOUGH);
+            curCost += toughCost;
+        }
+        
+        // Reasonable proxy for getting tough first and claim last.
+        body.sort((a,b) => BODYPART_COST[a] - BODYPART_COST[b]);
+        
         var mem = {role: 'claimer', targetRoom: room};
         
-        spawn.spawnCreep(body, 'claimer_'+room, {memory: mem});
+        return spawn.spawnCreep(body, 'claimer_'+room, {memory: mem});
     },
     run: function(creep) {
         var targetRoom = creep.memory.targetRoom;
