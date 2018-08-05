@@ -1,8 +1,10 @@
-var bootstrapper = require('role2.bootstrapper');
-var dropHarvester = require('role2.dropHarvester');
-var pathing = require('pathing');
-var roleDefender = require('role.defender');
-//var util = require('util');
+const bootstrapper = require('role2.bootstrapper');
+const dropHarvester = require('role2.dropHarvester');
+const pathing = require('pathing');
+const roleDefender = require('role.defender');
+const builder = require('role.builder');
+const miner = require('role2.miner');
+//const util = require('util');
 
 /* TODOs:
  - Harvest minerals.
@@ -38,50 +40,6 @@ function planRoads(room) {
         }
     }
     _.forEach(ret, p => room.createConstructionSite(p, STRUCTURE_ROAD));
-}
-
-// return the number of walkable spaces adjacent to the provided room position.
-function spacesNear(pos, range = 1) {
-    var room = Game.rooms[pos.roomName];
-    var area = room.lookAtArea(pos.y-range, pos.x-range, pos.y+range, pos.x+range, false);
-    var free = [];
-    for(var y = pos.y-range; y <= pos.y+range; y++) {
-        for(var x = pos.x-range; x <= pos.x+range; x++) {
-            if(!area[y][x]) {
-                console.log(`spacesNear(${pos}): missing ${x}, ${y}`);
-                continue;
-            }
-            var blocked = false;
-            for(var i = 0; i < area[y][x].length; i++) {
-                var o = area[y][x][i];
-                var t = o.type;
-                switch(t) {
-                case LOOK_STRUCTURES:
-                case LOOK_CONSTRUCTION_SITES:
-                    t = o[t].structureType;
-                    break;
-                case LOOK_TERRAIN:
-                    t = o[t];
-                    break;
-                }
-                
-                if(OBSTACLE_OBJECT_TYPES.includes(t)) {
-                    blocked = true;
-                    room.visual.rect(x-0.5, y-0.5, 1, 1, {fill: "#ff0000", opacity: 0.25});
-                    break;
-                }
-            }
-            if(!blocked) {
-                room.visual.rect(x-0.5, y-0.5, 1, 1, {fill: "#00ff00", opacity: 0.25});
-                var p = room.getPositionAt(x, y);
-                if(p) { // Ignore out of bounds.
-                    free.push(p);
-                }
-            }
-        }
-    }
-    // TOOD(baptr): Sort by linear distance from the target?
-    return free;
 }
 
 // return the current and max number of structures of the given type in the
@@ -159,6 +117,10 @@ function planMining(room) {
 
 module.exports = {
     run: function(room) {
+        if(!room) {
+            if(Game.time % 100 == 0) console.log("No room provided to planner!");
+            return;
+        }
         var spawn = room.find(FIND_MY_SPAWNS)[0];
         if(!spawn) {
             if(Game.time % 100 == 0) console.log("Awaiting spawn in "+room.name);
@@ -178,18 +140,43 @@ module.exports = {
             planRoads(room);
             planMining(room);
         }
-        //spacesNear(spawn.pos, 40);
         
-        var creeps = room.find(FIND_MY_CREEPS);
-        var kinds = _.groupBy(creeps, c => c.memory.role);
-        // var numRole = r => (kinds[r] || []).length;
-        
-        if(bootstrapper.spawnCondition(spawn, kinds)) {
-            bootstrapper.spawn(spawn);
+        if(Game.time % 10 == 0 && !spawn.spawning) {
+            spawnCreeps(spawn, room);
         }
-        if(Game.time % 100 == 0) { // bleh
-            dropHarvester.spawn(spawn);
-        }
-    },
-    spacesNear: spacesNear,
+    }
 };
+
+function spawnCreeps(spawn, room) {
+    var creeps = room.find(FIND_MY_CREEPS);
+    var kinds = _.groupBy(creeps, c => c.memory.role);
+    // var numRole = r => (kinds[r] || []).length;
+    
+    if(bootstrapper.spawnCondition(spawn, kinds)) {
+        bootstrapper.spawn(spawn);
+    }
+    if(spawn.spawning) return;
+    if(Game.time % 100 == 0) { // bleh
+        dropHarvester.spawn(spawn);
+    }
+    if(spawn.spawning) return;
+    if(Game.time % 10 == 0 && room.energyAvailable == room.energyCapacityAvailable && room.energyCapacityAvailable > 1000) {
+        if(room.find(FIND_CONSTRUCTION_SITES).length > 0) {
+            builder.spawn(spawn);
+        } else {
+            var damage = _.sum(_.map(room.find(FIND_STRUCTURES), s => s.hitsMax - s.hits));
+            // Containers (in particular) rot fast, so this number ends up being big.
+            if(damage > 50000) {
+                builder.spawn(spawn);
+            }
+        }
+    }
+    if(spawn.spawning) return;
+    var minerNeeded = room.memory.needMiner;
+    if(minerNeeded) {
+        //console.log("Need miner in " + room.name + " " + JSON.stringify(minerNeeded));
+        // TOOD(baptr): need src?
+        miner.spawn(spawn, minerNeeded.dest);
+        // XXX prevent multiple spawns.
+    }
+}

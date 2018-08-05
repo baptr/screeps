@@ -85,21 +85,13 @@ function runW5N8() {
         pathing.swampCheck(Game.flags.Flag1.pos, Game.flags.Flag2.pos);
     }
 }
-function runW4N8() {
-    var room = Game.rooms.W4N8;
-    if(!room) return;
-    roomPlanner.run(room);
-}
-function runW5N3() {
-    var room = Game.rooms.W5N3;
-    if(!room) return;
-    roomPlanner.run(room);
-}
 
 module.exports.loop = function () {
     runW5N8();
-    runW4N8();
-    runW5N3();
+    roomPlanner.run(Game.rooms.W4N8);
+    roomPlanner.run(Game.rooms.W5N3);
+    roomPlanner.run(Game.rooms.W6N9);
+    roomPlanner.run(Game.rooms.W8N7);
     labPlanner.test();
     claimPlanner.test();
     // TODO(baptr): Set up better lab control.
@@ -166,6 +158,16 @@ module.exports.loop = function () {
                 {role: 'relocater', subtype: '_W5N9', reloRoom: 'W5N9', reloNextRole: 'upgrader',
                     container: '5b4120c35676c340a95ea8f9'
                 }})
+        }
+        
+        if(!spawn.spawning) {
+            var minerNeeded = room.memory.needMiner;
+            if(minerNeeded) {
+                //console.log("Need miner in " + room.name + " " + JSON.stringify(minerNeeded));
+                // TOOD(baptr): need src?
+                dropMiner.spawn(spawn, minerNeeded.dest);
+                // XXX prevent multiple spawns.
+            }
         }
     }
     

@@ -49,6 +49,10 @@ module.exports = {
             var source = Game.getObjectById(creep.memory.source);
             if(!source) {
                 source = creep.room.controller.pos.findClosestByPath(FIND_SOURCES);
+                if(!source) {
+                    console.log("No source near controller in "+creep.room.name);
+                    source = creep.pos.findClosestByPath(FIND_SOURCES);
+                }
                 creep.memory.source = source.id;
             }
             if(creep.harvest(source) == ERR_NOT_IN_RANGE) {

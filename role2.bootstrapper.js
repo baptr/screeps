@@ -67,7 +67,7 @@ spawn: function(spawn, extMem={}) {
     extend([WORK, CARRY, MOVE, MOVE]);
     extend([WORK, MOVE], limit=1);
     extend([CARRY, MOVE])
-    extend([CARRY]) // TODO(baptr): worth it?
+    //extend([CARRY]) // TODO(baptr): worth it?
     
     extMem.role = 'bootstrapper';
     var ret = spawn.spawnCreep(body, 'bootstrapper-'+spawn.room.name+'-'+Game.time, {
@@ -177,6 +177,8 @@ run: function(creep) {
             break;
         case ERR_NOT_ENOUGH_RESOURCES:
             creep.memory.filling = true;
+            // XXX best time?
+            delete creep.memory.src;
             break;
         case ERR_INVALID_TARGET:
             delete creep.memory.dest;

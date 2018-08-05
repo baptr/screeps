@@ -1,4 +1,5 @@
-var util = require('util');
+const util = require('util');
+const pathing = require('pathing');
 
 // Mostly-WORK harvester that drops on the ground (or in containers if 
 // available).
@@ -9,6 +10,7 @@ var util = require('util');
 // the resource ID flaps.
 // TODO(baptr): Is it actually better to time it perfectly, or to drain the
 // the source as fast as possible? Slow and steady means more waiting...
+// TODO(baptr): Limit number of harvester/source to the space available.
 const ROLE = 'dropHarvester';
 module.exports = {
 // XXX room vs spawn
@@ -108,26 +110,34 @@ function pickSource(room) {
     var existing = room.find(FIND_MY_CREEPS, {filter: c => c.memory.role == ROLE});
     
     var workParts = {};
+    var numHarvesters = {};
     _.forEach(existing, c => {
         // TODO(baptr): Feels like there should be a better way to write this.
         let src = c.memory.src;
         if(workParts[src] == null) {
             workParts[src] = 0;
+            numHarvesters[src] = 0;
         }
         if(c.ticksToLive > ELDER_EPSILON) {
             workParts[src] += c.getActiveBodyparts(WORK);
+            numHarvesters[src]++;
         }
     });
     var assigned = function(id) { return workParts[id] || 0 };
+    var existing = function(id) { return numHarvesters[id] || 0 };
     
     var sources = room.find(FIND_SOURCES);
     sources.sort((a,b) => assigned(a.id)-assigned(b.id));
     
     for(var i = 0; i < sources.length; i++) {
         var s = sources[i];
-        if(assigned(s.id) < HARVESTER_WORKS) {
-            return s;
+        if(assigned(s.id) >= HARVESTER_WORKS) {
+            continue;
         }
+        if(existing(s.id) >= pathing.spacesNear(s.pos).length) {
+            continue;
+        }
+        return s;
     }
     return null;
 }

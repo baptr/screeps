@@ -14,7 +14,7 @@
 // B  O   H
 
 const VISUALIZE = true;
-const BUILD = true;
+const BUILD = false;
 
 var INVERT_REACTIONS = {};
 _.forOwn(REACTIONS, (v, a) => _.forOwn(v, (c, b) => {
@@ -166,14 +166,72 @@ function build(pos, res) {
         return false;
     }
     _.forEach(locs, (p, r) => {
+        // RoomPositions don't round-trip through memory. :-/
+        let p_ = new RoomPosition(p.pos.x, p.pos.y, p.pos.roomName);
+        if(!p.struct) {
+            var st = _.find(p_.lookFor(LOOK_STRUCTURES), s => s.structureType == STRUCTURE_LAB);
+            if(st) p.struct = st.id;
+        } else { return }
         if(p.tier >= tLim) { return }
-        room.visual.circle(p.pos, {opacity: 0.5});
         if(BUILD) { 
-            // XXX RoomPositions don't round-trip through memory. :-/
-            let p_ = new RoomPosition(p.pos.x, p.pos.y, p.pos.roomName);
             room.createConstructionSite(p_, STRUCTURE_LAB);
+        } else {
+            room.visual.circle(p_, {opacity: 0.5});
         }
     });
+}
+
+function planMiners(room) {
+    var labs = room.memory.labs;
+    if(!labs) return;
+    _.forEach(labs, (l, r) => {
+        var lab = Game.getObjectById(l.struct);
+        if(!lab) return;
+        // XXX re-purpose the miner?
+        if(lab.mineralAmount >= lab.mineralCapacity) return;
+        
+        // TODO(baptr): handle ghodium
+        if(r.length != 1) {
+            var [left, right] = INVERT_REACTIONS[r];
+            var lLab = Game.getObjectById(labs[left].struct);
+            var rLab = Game.getObjectById(labs[right].struct);
+            if(!lLab || !rLab) {
+                console.log("Couldn't find sub labs for " + r);
+                return;
+            }
+            lab.runReaction(lLab, rLab);
+            return;
+        }
+        var src = Game.getObjectById(l.src);
+        if(!src) {
+            // Find one
+            // TODO(baptr): Memoize?
+            _.forEach(Game.rooms, (rm, n) => {
+                if(!rm.controller.my) return;
+                
+                var m = rm.find(FIND_MINERALS)[0];
+                console.log(`${r} => ${n} ${rm} ${rm.find(FIND_MINERALS)}`);
+                if(!m) return;
+                if(m.mineralType != r) return;
+                if(!m.pos.lookFor(LOOK_STRUCTURES, s => s.structureType == STRUCTURE_EXTRACTOR).length) return;
+                src = m;
+                return false;
+            });
+            if(src) {
+                l.src = src.id;
+            } else {
+                console.log(`No src for ${r}`);
+                return;
+            }
+        }
+        
+        var creep = Game.getObjectById(l.miner);
+        if(!creep) {
+            // spawn one near the source
+            // console.log(`No creep for ${r}`);
+            src.room.memory.needMiner = {src: src.id, dest: lab.id};
+        }
+    })
 }
 
 module.exports = {
@@ -181,6 +239,7 @@ module.exports = {
   plan: plan,
   test: function() {
     //build(Game.rooms.W4N8.getPositionAt(20, 26), RESOURCE_GHODIUM);
-    build(Game.rooms.W4N8.getPositionAt(24, 33), RESOURCE_CATALYZED_KEANIUM_ALKALIDE);
+    build(Game.rooms.W5N8.getPositionAt(38, 22), RESOURCE_CATALYZED_KEANIUM_ALKALIDE);
+    planMiners(Game.rooms.W5N8);
   }
 };

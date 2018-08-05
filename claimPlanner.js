@@ -1,4 +1,10 @@
+const claimer = require('role.claimer');
+const builder = require('role.builder');
+const relocater = require('role.relocater');
+const bootstrapper = require('role2.bootstrapper');
+
 const VISUALIZE = true;
+const BOOTSTRAP = false;
 
 function run(roomName) {
     const obs = Game.getObjectById(module.exports.observer);
@@ -22,6 +28,31 @@ function run(roomName) {
     var [spawn, path] = pickSpawn(ctrl.pos);
     // Is it actually worth the effort to (re)use the path? Or just spawn a few
     // relocater->bootstrappers and be done with it?
+    if(BOOTSTRAP && !ctrl.my) {
+        if(claimer.spawn(spawn, roomName) == OK) {
+            return;
+        }
+    }
+    if(BOOTSTRAP && ctrl.my) {
+        if(room.find(FIND_MY_SPAWNS) || room.find(FIND_MY_CONSTRUCTION_SITES)) {
+            // already planned, just send in some bootstrappers to help out
+            // XXX when do we stop?
+            if(room.find(FIND_MY_CREEPS).length > 3) return;
+            if(spawn.spawning) return;
+            // TODO(baptr): Avoid a thundering herd so the bodies are better.
+            var body = builder.mkBody(spawn.room.energyAvailable);
+            var ret = spawn.spawnCreep(body, `relo-builder-${roomName}-${Game.time}`, {memory: relocater.setMem({}, roomName, 'bootstrapper')});
+            if(ret == OK) return;
+            console.log(`Tried to spawn relo builder for ${roomName}: ${ret}`);
+        } else {
+            if(Game.time % 10) {
+                console.log("No spawn planned for "+roomName);
+            }
+            // XXX figure out a place for a spawn? (via roomPlanner?)
+            // look for a flag?
+            // place the construction site manually?
+        }
+    }
 }
 
 // TODO(baptr): Consider Game.map.findRoute...
@@ -62,11 +93,11 @@ function visPath(path) {
 // - figure out a better way to use observers
 
 module.exports = {
-targets: ['W5N3'],
+target: 'W8N7',
 observer: '5b51885c8610fd40ae72c7da',
 run: run,
 pickSpawn: pickSpawn,
 test: function() {
-    //run('W5N3');
+    //run(module.exports.target);
 }
 };

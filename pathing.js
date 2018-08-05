@@ -75,5 +75,50 @@ swampCheck: function(src, dest, roomMatrix=null) {
         });
     //}
     return ret;
+},
+// return the number of walkable spaces adjacent to the provided room position.
+spacesNear: function(pos, range = 1, ignoreCreeps = true) {
+    var room = Game.rooms[pos.roomName];
+    var area = room.lookAtArea(pos.y-range, pos.x-range, pos.y+range, pos.x+range, false);
+    var free = [];
+    for(var y = pos.y-range; y <= pos.y+range; y++) {
+        for(var x = pos.x-range; x <= pos.x+range; x++) {
+            if(!area[y][x]) {
+                console.log(`spacesNear(${pos}): missing ${x}, ${y}`);
+                continue;
+            }
+            var blocked = false;
+            for(var i = 0; i < area[y][x].length; i++) {
+                var o = area[y][x][i];
+                var t = o.type;
+                switch(t) {
+                case LOOK_STRUCTURES:
+                case LOOK_CONSTRUCTION_SITES:
+                    t = o[t].structureType;
+                    break;
+                case LOOK_TERRAIN:
+                    t = o[t];
+                    break;
+                case LOOK_CREEPS:
+                    if(ignoreCreeps) continue;
+                }
+                
+                if(OBSTACLE_OBJECT_TYPES.includes(t)) {
+                    blocked = true;
+                    room.visual.rect(x-0.5, y-0.5, 1, 1, {fill: "#ff0000", opacity: 0.25});
+                    break;
+                }
+            }
+            if(!blocked) {
+                room.visual.rect(x-0.5, y-0.5, 1, 1, {fill: "#00ff00", opacity: 0.25});
+                var p = room.getPositionAt(x, y);
+                if(p) { // Ignore out of bounds.
+                    free.push(p);
+                }
+            }
+        }
+    }
+    // TOOD(baptr): Sort by linear distance from the target?
+    return free;
 }
 };
