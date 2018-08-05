@@ -209,10 +209,8 @@ function planMiners(room) {
             _.forEach(Game.rooms, (rm, n) => {
                 if(!rm.controller.my) return;
                 
-                var m = rm.find(FIND_MINERALS)[0];
-                console.log(`${r} => ${n} ${rm} ${rm.find(FIND_MINERALS)}`);
+                var m = rm.find(FIND_MINERALS, m => m.mineralType == r)[0];
                 if(!m) return;
-                if(m.mineralType != r) return;
                 if(!m.pos.lookFor(LOOK_STRUCTURES, s => s.structureType == STRUCTURE_EXTRACTOR).length) return;
                 src = m;
                 return false;
@@ -239,7 +237,9 @@ module.exports = {
   plan: plan,
   test: function() {
     //build(Game.rooms.W4N8.getPositionAt(20, 26), RESOURCE_GHODIUM);
-    build(Game.rooms.W5N8.getPositionAt(38, 22), RESOURCE_CATALYZED_KEANIUM_ALKALIDE);
-    planMiners(Game.rooms.W5N8);
+    if(Game.time%10 == 0) {
+        build(Game.rooms.W5N8.getPositionAt(38, 22), RESOURCE_CATALYZED_KEANIUM_ALKALIDE);
+        planMiners(Game.rooms.W5N8);
+    }
   }
 };

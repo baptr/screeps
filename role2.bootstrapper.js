@@ -3,6 +3,8 @@ var util = require('util');
 const DEBUG = false;
 
 /* TODOs
+  - Upgrades at level 8 are limited to 15 energy/tick, so too many bootstrappers
+    end up being useless.
   - Smarter way to keep the controller afloat? (Ticks < 2k works for now...)
 */
 
@@ -216,7 +218,8 @@ function findDest(creep) {
     }});
     if(dest) { return dest; }
     
-    if(creep.room.controller.ticksToDowngrade < 2000) {
+    // TODO(baptr): Why is controller undefined sometimes? spawning? travelling through a neutral room?
+    if(creep.room.controller && creep.room.controller.ticksToDowngrade < 2000) {
         return creep.room.controller;
     }
     

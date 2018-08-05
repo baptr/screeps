@@ -17,6 +17,8 @@ var carrier = require('role2.carrier');
 var pathing = require('pathing');
 var claimPlanner = require('claimPlanner');
 var labPlanner = require('labPlanner');
+var combatant = require('role2.combatant');
+var planAttack = require('plan.attack');
 
 var roleTower = require('role.tower');
 
@@ -94,6 +96,7 @@ module.exports.loop = function () {
     roomPlanner.run(Game.rooms.W8N7);
     labPlanner.test();
     claimPlanner.test();
+    planAttack.test();
     // TODO(baptr): Set up better lab control.
     // Game.getObjectById('5b4318745676c340a95fda83').runReaction(Game.getObjectById('5b4325e05676c340a95fe2d5'), Game.getObjectById('5b40a53a5676c340a95e62df'));
     var room = Game.rooms[BASE_NAME];
@@ -233,6 +236,9 @@ module.exports.loop = function () {
             break;
         case carrier.ROLE:
             carrier.run(creep);
+            break;
+        case combatant.ROLE:
+            combatant.run(creep);
             break;
         default:
             console.log(name + " has no known role ("+creep.memory.role+")");

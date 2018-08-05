@@ -120,5 +120,19 @@ spacesNear: function(pos, range = 1, ignoreCreeps = true) {
     }
     // TOOD(baptr): Sort by linear distance from the target?
     return free;
+},
+visPath: function(path) {
+    var roomVis;
+    var lastRoom;
+    for(let i = 1; i < path.length; i++) {
+        let prev = path[i-1];
+        let cur = path[i];
+        if(prev.roomName != cur.roomName) continue;
+        if(cur.roomName != lastRoom) {
+            lastRoom = cur.roomName;
+            roomVis = new RoomVisual(cur.roomName);
+        }
+        roomVis.line(prev, cur);
+    }
 }
 };

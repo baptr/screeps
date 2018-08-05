@@ -7,8 +7,10 @@ const miner = require('role2.miner');
 //const util = require('util');
 
 /* TODOs:
- - Harvest minerals.
-   - Return them to base?
+ - Add additional spawners at some point to avoid spawn time bottlenecks.
+   - Make them usable.
+ - Tune spawn energy thresholds, since it's hard to use all energy for one spawn.
+ - Work on combat.
  - Extend bootstrappers to be more carry-heavy.
  - Save up before spawning a bootstrapper if available < capacity and there are other delivery drones around.
  - Better tune bootstrapper -> dropHarvester spawn strategy.
@@ -174,9 +176,13 @@ function spawnCreeps(spawn, room) {
     if(spawn.spawning) return;
     var minerNeeded = room.memory.needMiner;
     if(minerNeeded) {
-        //console.log("Need miner in " + room.name + " " + JSON.stringify(minerNeeded));
+        // console.log("Need miner in " + room.name + " " + JSON.stringify(minerNeeded));
         // TOOD(baptr): need src?
-        miner.spawn(spawn, minerNeeded.dest);
-        // XXX prevent multiple spawns.
+        if(miner.spawn(spawn, minerNeeded.dest) == OK) {
+            // Far from perfect since this will be re-written until the lab is
+            // full, but will eventually stop spawns.
+            // TODO(baptr): improve
+            delete room.memory.needMiner;
+        }
     }
 }
