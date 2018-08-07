@@ -15,7 +15,7 @@ module.exports = {
         // setup?
         const workUnit = [WORK, WORK, WORK, CARRY, MOVE, MOVE];
         const workCost = util.bodyCost(workUnit);
-        while(availableEng > workCost) {
+        while(availableEng > workCost && body.length + workUnit.length <= 50) {
             body = body.concat(workUnit);
             availableEng -= workCost;
         }
