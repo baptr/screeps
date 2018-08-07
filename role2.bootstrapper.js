@@ -32,6 +32,7 @@ spawnCondition: function(spawn, roomKinds) {
     const numRole = r => (roomKinds[r] || []).length;
     const numBoots = numRole('bootstrapper');
     // Hardcoded 6/4/2 was too much for a single-source room.
+    // TODO(baptr): Scale down when first starting and getting assistance from another room.
     if(numBoots >= numSources*3) { return false }
     // TODO(baptr): Tune limit before leaving more room for other types.
     if(energyCap > 1000 && numBoots >= numSources*2) {
@@ -218,9 +219,9 @@ function findDest(creep) {
     }});
     if(dest) { return dest; }
     
-    // TODO(baptr): Why is controller undefined sometimes? spawning? travelling through a neutral room?
-    if(creep.room.controller && creep.room.controller.ticksToDowngrade < 2000) {
-        return creep.room.controller;
+    var ctrl = creep.room.controller;
+    if(ctrl && ctrl.ticksToDowngrade < CONTROLLER_DOWNGRADE[ctrl.level] * 0.9) {
+        return ctrl;
     }
     
     // Spawning build sites.

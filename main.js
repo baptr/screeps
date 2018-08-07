@@ -80,20 +80,13 @@ if(DUMP_COSTS) {
     });
 }
 
-function runW5N8() {
-    var room = Game.rooms.W5N8;
-    roomPlanner.run(room);
-    if(false) { // TODO(baptr): Find a better toggle, or just leave it on. It's not that expensive.
-        pathing.swampCheck(Game.flags.Flag1.pos, Game.flags.Flag2.pos);
-    }
-}
-
 module.exports.loop = function () {
-    runW5N8();
+    roomPlanner.run(Game.rooms.W5N8);
     roomPlanner.run(Game.rooms.W4N8);
     roomPlanner.run(Game.rooms.W5N3);
     roomPlanner.run(Game.rooms.W6N9);
     roomPlanner.run(Game.rooms.W8N7);
+    roomPlanner.run(Game.rooms.W7N3);
     labPlanner.test();
     claimPlanner.test();
     planAttack.test();

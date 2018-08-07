@@ -11,7 +11,7 @@ function planAttack(roomName) {
     
     var towers = room.find(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_TOWER});
     towers.sort((a, b) => a.hits - b.hits);
-    
+
     /*var exit;
     _.forEach(towers, t => {
         let exit_ = t.pos.findClosestByPath(FIND_EXIT);
@@ -52,8 +52,8 @@ module.exports = {
 planAttack: planAttack,
 test: function() {
     return;
+    Game.getObjectById(OBSERVER).observeRoom('W9N9');
     
-    //Game.getObjectById(OBSERVER).observeRoom('W1N9');
     planAttack('W9N9');
     if(Game.time % 20 == 3) _.forEach(Game.spawns, s => combatant.spawn(s, Game.flags.GatherPoint.pos));
     

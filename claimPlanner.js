@@ -4,9 +4,11 @@ const relocater = require('role.relocater');
 const bootstrapper = require('role2.bootstrapper');
 
 const VISUALIZE = true;
-const BOOTSTRAP = false;
+const BOOTSTRAP = true;
 
-function run(roomName) {
+function run(claimFlag) {
+    var spawnPos = claimFlag.pos;
+    var roomName = spawnPos.roomName;
     const obs = Game.getObjectById(module.exports.observer);
     if(!obs) {
         console.log('Unable to use observer for claim planning');
@@ -17,7 +19,8 @@ function run(roomName) {
     }
     const room = Game.rooms[roomName];
     if(!room) {
-        // not yet visible, try again next tick.
+        // TODO(baptr): If this happens multiple times, the observer msut be in
+        // use elsewhere...
         console.log(`No visibility into claim target ${roomName}, trying next tick...`);
         return;
     }
@@ -28,15 +31,20 @@ function run(roomName) {
     var [spawn, path] = pickSpawn(ctrl.pos);
     // Is it actually worth the effort to (re)use the path? Or just spawn a few
     // relocater->bootstrappers and be done with it?
+    // TODO(baptr): Don't try to spawn another while the first is still travelling.
     if(BOOTSTRAP && !ctrl.my) {
         if(claimer.spawn(spawn, roomName) == OK) {
             return;
         }
     }
     if(BOOTSTRAP && ctrl.my) {
-        if(room.find(FIND_MY_SPAWNS) || room.find(FIND_MY_CONSTRUCTION_SITES)) {
+        if(room.find(FIND_MY_SPAWNS).length || room.find(FIND_MY_CONSTRUCTION_SITES).length) {
+            if(room.energyCapacityAvailable > 700) {
+                console.log("Initial bootstrapping of",roomName,"complete");
+                claimFlag.remove();
+                return;
+            }
             // already planned, just send in some bootstrappers to help out
-            // XXX when do we stop?
             if(room.find(FIND_MY_CREEPS).length > 3) return;
             if(spawn.spawning) return;
             // TODO(baptr): Avoid a thundering herd so the bodies are better.
@@ -45,12 +53,9 @@ function run(roomName) {
             if(ret == OK) return;
             console.log(`Tried to spawn relo builder for ${roomName}: ${ret}`);
         } else {
-            if(Game.time % 10) {
-                console.log("No spawn planned for "+roomName);
-            }
-            // XXX figure out a place for a spawn? (via roomPlanner?)
-            // look for a flag?
-            // place the construction site manually?
+            // TODO figure out a place for it via roomPlanner?
+            var ret = room.createConstructionSite(spawnPos.x, spawnPos.y, STRUCTURE_SPAWN, 'Spawn'+roomName);
+            console.log(`Placing construction site at ${spawnPos} in ${roomName}: ${ret}`);
         }
     }
 }
@@ -58,7 +63,7 @@ function run(roomName) {
 // TODO(baptr): Consider Game.map.findRoute...
 // - easier to filter enemy rooms
 function pickSpawn(dstPos) {
-    var goals = _.map(Game.spawns, s => {
+    var goals = _.map(_.filter(Game.spawns, s => s.room.energyCapacityAvailable > 1000), s => {
         // TODO(baptr): Filter for rooms with a lot of energy?
         return {pos: s.pos, range: 1};
     });
@@ -93,11 +98,13 @@ function visPath(path) {
 // - figure out a better way to use observers
 
 module.exports = {
-target: 'W8N7',
 observer: '5b51885c8610fd40ae72c7da',
 run: run,
 pickSpawn: pickSpawn,
 test: function() {
-    //run(module.exports.target);
+    var target = Game.flags.Claim;
+    if(target) {
+        run(target);
+    }
 }
 };
