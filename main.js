@@ -25,15 +25,16 @@ const STRUCTS = ['tower'];
 var struct = {};
 _.forEach(STRUCTS, s => {struct[s] = require('struct.'+s)});
 
-var util = require('util');
-var pathing = require('util.pathing');
-var utilStats = require('util.stats');
+const UTILS = ['creep', 'pathing', 'stats'];
+var util = {};
+_.forEach(UTILS, u => {util[u] = require('util.'+u)});
 
 const profiler = require('screeps-profiler');
 profiler.enable();
 _.forEach(role, (m, r) => profiler.registerObject(m, 'role.'+r));
 _.forEach(plan, (m, p) => profiler.registerObject(m, 'plan.'+p));
 _.forEach(struct, (m, s) => profiler.registerObject(m, 'struct.'+s));
+_.forEach(util, (m, u) => profiler.registerObject(m, 'util.'+u));
 
 
 const SPAWN_NAME = 'Spawn1';
@@ -84,7 +85,7 @@ function buildingSay(struct, text) {
 
 if(DUMP_COSTS) {
     _.forEach(colonyTargets, t => {
-        var cost = util.bodyCost(t.body);
+        var cost = util.creep.bodyCost(t.body);
         var id = "role " + t.role;
         if(t.subtype) { id += t.subtype }
         console.log(id + " costs " + cost);
@@ -149,7 +150,7 @@ runBase: function() {
         var mem = kind.memory || {};
         if(!mem.role) { mem.role = kind.role; }
         mem.subtype = kind.subtype;
-        var cost = util.bodyCost(kind.body);
+        var cost = util.creep.bodyCost(kind.body);
         if(cost > room.energyAvailable) {
             buildingSay(spawn, room.energyAvailable+'<'+cost);
             return false; // Might be able to spawn something less important, but we should save up.
@@ -160,7 +161,7 @@ runBase: function() {
     })
     
     // TODO(baptr): Work this in to the normal hash.
-    if(room.energyAvailable > util.bodyCost(remoteUpgraderBody) && (kinds['upgrader_W5N9'] || []).length < 2) {
+    if(room.energyAvailable > util.creep.bodyCost(remoteUpgraderBody) && (kinds['upgrader_W5N9'] || []).length < 2) {
         spawn.spawnCreep(remoteUpgraderBody, 'remoteUpgrader_W5N9_'+Game.time, {memory: 
             {role: 'relocater', subtype: '_W5N9', reloRoom: 'W5N9', reloNextRole: 'upgrader',
                 container: '5b4120c35676c340a95ea8f9'
@@ -240,7 +241,7 @@ module.exports.loop = () => profiler.wrap(() => {
     
     // Segmented stats are read every 15s.
     if(Game.time % 50 == 0) {
-        const stats = utilStats.run();
+        const stats = util.stats.run();
         // Memory.stats = stats;
         RawMemory.segments[99] = JSON.stringify(stats);
     }

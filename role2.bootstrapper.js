@@ -1,4 +1,4 @@
-var util = require('util');
+var util = require('util.creep');
 
 const DEBUG = false;
 

@@ -4,7 +4,6 @@ const pathing = require('util.pathing');
 const roleDefender = require('role.defender');
 const builder = require('role.builder');
 const miner = require('role2.miner');
-//const util = require('util');
 
 /* TODOs:
  - Add additional spawners at some point to avoid spawn time bottlenecks.

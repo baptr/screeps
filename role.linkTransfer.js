@@ -1,5 +1,5 @@
 var relo = require('role.relocater');
-var util = require('util');
+var util = require('util.creep');
 
 module.exports = {
     controllerLink: '5b4120c35676c340a95ea8f9',

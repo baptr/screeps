@@ -1,4 +1,4 @@
-const util = require('util');
+const util = require('util.creep');
 
 const MIN_BODY = [WORK, CARRY, MOVE, MOVE];
 const MIN_COST = util.bodyCost(MIN_BODY);

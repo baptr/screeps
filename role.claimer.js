@@ -1,5 +1,5 @@
 var roleUpgrader = require('role.upgrader');
-var util = require('util');
+var util = require('util.creep');
 
 module.exports = {
     spawn: function(spawn, room) {

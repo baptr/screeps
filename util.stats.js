@@ -1,4 +1,4 @@
-const util = require('util');
+const creepUtil = require('util.creep');
 
 function roomStats(room) {
     var out = {};
@@ -54,7 +54,7 @@ function roomStats(room) {
         creepStats.count++;
         creepStats.hits += c.hits || 0;
         creepStats.hitsMax += c.hitsMax || 0;
-        creepStats.bodyCost += util.bodyCost(c.body) || 0;
+        creepStats.bodyCost += creepUtil.bodyCost(c.body) || 0;
     });
     out.creepStats = creepStats;
     

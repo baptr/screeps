@@ -1,4 +1,4 @@
-const util = require('util');
+const util = require('util.creep');
 const pathing = require('util.pathing');
 
 // Mostly-WORK harvester that drops on the ground (or in containers if 

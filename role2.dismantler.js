@@ -1,5 +1,3 @@
-const util = require('util');
-
 const ROLE = 'dismantler';
 
 function planBody() {

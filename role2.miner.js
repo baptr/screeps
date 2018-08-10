@@ -1,6 +1,6 @@
 // Written to be a drop miner, but we probably want ~Adjacent Storage instead of
 // pure drop.
-const util = require('util');
+const util = require('util.creep');
 
 const ROLE = 'dropMiner';
 
