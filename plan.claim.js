@@ -45,7 +45,9 @@ function run(claimFlag) {
                 return;
             }
             // already planned, just send in some bootstrappers to help out
-            if(room.find(FIND_MY_CREEPS).length > 3) return;
+            // TODO(baptr): This doesn't keep sending bigger ones once the room
+            // is able to build its own, which was kind of the point.
+            if(room.find(FIND_MY_CREEPS).length > 7) return;
             if(spawn.spawning) return;
             // TODO(baptr): Avoid a thundering herd so the bodies are better.
             var body = builder.mkBody(spawn.room.energyAvailable);

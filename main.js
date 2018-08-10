@@ -1,28 +1,31 @@
-var roleHarvester = require('role.harvester');
-var remoteHarvester = require('role.remoteHarvester');
-var roleUpgrader = require('role.upgrader');
-var roleBuilder = require('role.builder');
-var roleRepairer = require('role.repairer');
-var roleDefender = require('role.defender');
-var roleClaimer = require('role.claimer');
-var roleRelocater = require('role.relocater');
-var roleMiner = require('role.miner');
-var roleTransfer = require('role.linkTransfer');
+const ROLES = ['harvester', 'remoteHarvester', 'upgrader', 'builder', 'repairer', 'defender', 'claimer', 'relocater', 'miner', 'linkTransfer', 'bob'];
+const ROLE2S = ['bootstrapper', 'dropHarvester', 'miner', 'combatant', 'dismantler'];
+var role = {};
+_.forEach(ROLES, r => {
+    role[r] = require('role.'+r);
+})
+_.forEach(ROLE2S, r => {
+    let m = require('role2.'+r);
+    if(m.ROLE) {
+        r = m.ROLE;
+    }
+    if(role[r]) {
+        console.log("Duplicate role: "+r);
+        role[r+"_2"] = m;
+    } else {
+        role[r] = m;
+    }
+})
 
-var roleBob = require('role.bob');
-var bootstrapper = require('role2.bootstrapper');
-var dropHarvester = require('role2.dropHarvester');
-var dropMiner = require('role2.miner');
-var carrier = require('role2.carrier');
-var pathing = require('pathing');
-var claimPlanner = require('claimPlanner');
-var labPlanner = require('labPlanner');
-var combatant = require('role2.combatant');
+var pathing = require('util.pathing');
+var claimPlanner = require('plan.claim');
+var labPlanner = require('plan.lab');
 var planAttack = require('plan.attack');
+var utilStats = require('util.stats');
+var roomPlanner = require('plan.room');
 
 var roleTower = require('role.tower');
 
-var roomPlanner = require('roomPlanner');
 var util = require('util');
 
 const SPAWN_NAME = 'Spawn1';
@@ -39,7 +42,7 @@ var colonyTargets = [
     // TODO(baptr): Auto-downscale these for initial setup.
     {role: "harvester", body: addMOVE([WORK, CARRY]), target: 1, memory: {source: "e1620773914ad5a"}},
     {role: "remoteHarvester", subtype: "_W5N9", body: addMOVE([WORK, WORK, CARRY, CARRY, CARRY, CARRY]), target: 2, 
-        memory: remoteHarvester.new("W5N9", 'f43107732c09317')},
+        memory: role.remoteHarvester.new("W5N9", 'f43107732c09317')},
     {role: "harvester", subtype: "_big", body: addMOVE([WORK, WORK, WORK, CARRY, CARRY, CARRY]), target: 2,
         memory: {source: "e1620773914ad5a"}},
     {role: "upgrader", body: [WORK, WORK, WORK, WORK, WORK, WORK, CARRY, MOVE], target: 2,
@@ -48,14 +51,14 @@ var colonyTargets = [
         memory: {container: "5b3e8add5676c340a95d3ac1"}},
     {role: "miner", body: addMOVE([WORK, WORK, WORK, WORK, CARRY]), target: 0,
         memory: {source: "7ec06164d63658d", store: "5b408f605676c340a95e55b6"},
-        condition: roleMiner.spawnCondition,
+        condition: role.miner.spawnCondition,
     },
     {role: "miner", subtype: "_W5N9", body: addMOVE([WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY]), target: 0,
-        memory: roleRelocater.setMem({source: '9ef56164d4b4ba0', store: '5b408f605676c340a95e55b6'}, 'W5N9', 'miner'),
-        condition: function(r) { return roleMiner.spawnCondition(Game.rooms.W5N9) },
+        memory: role.relocater.setMem({source: '9ef56164d4b4ba0', store: '5b408f605676c340a95e55b6'}, 'W5N9', 'miner'),
+        condition: function(r) { return role.miner.spawnCondition(Game.rooms.W5N9) },
     },
     {role: "linkTransfer", dynSpawn: function(spawn) { 
-        roleTransfer.spawn(spawn, Game.getObjectById(roleTransfer.pocketSrc), Game.getObjectById(roleTransfer.controllerLink));
+        role.linkTransfer.spawn(spawn, Game.getObjectById(role.linkTransfer.pocketSrc), Game.getObjectById(role.linkTransfer.controllerLink));
     }, condition: function(room) { 
         return !_.some(Game.creeps, (c) => c.my && c.memory.reloNextRole == 'linkTransfer');
     }, target: 1},
@@ -87,6 +90,7 @@ module.exports.loop = function () {
     roomPlanner.run(Game.rooms.W6N9);
     roomPlanner.run(Game.rooms.W8N7);
     roomPlanner.run(Game.rooms.W7N3);
+    roomPlanner.run(Game.rooms.W7N9);
     labPlanner.test();
     claimPlanner.test();
     planAttack.test();
@@ -116,7 +120,7 @@ module.exports.loop = function () {
         if(room.find(FIND_HOSTILE_CREEPS).length) {
             console.log("We're under attack!!");
             buildingSay(spawn, "Oh snap");
-            roleDefender.spawn(spawn, {});
+            role.defender.spawn(spawn, {});
         }
         
         var kinds = _.groupBy(Game.creeps, creep => (creep.memory.reloNextRole || creep.memory.role)+creep.memory.subtype);
@@ -161,7 +165,8 @@ module.exports.loop = function () {
             if(minerNeeded) {
                 //console.log("Need miner in " + room.name + " " + JSON.stringify(minerNeeded));
                 // TOOD(baptr): need src?
-                dropMiner.spawn(spawn, minerNeeded.dest);
+                // XXX rename to dropMiner
+                role.dropMiner.spawn(spawn, minerNeeded.dest);
                 // XXX prevent multiple spawns.
             }
         }
@@ -177,64 +182,34 @@ module.exports.loop = function () {
         // TODO(baptr): Some day I'm going to want to do something while some
         // role is still spawning, but until then...
         if(creep.spawning) continue;
+        // TODO(baptr): Stop doing fallbacks here so there can be fewer special cases.
         switch(creep.memory.role) {
         case 'harvester':
-            if(roleHarvester.run(creep) === false) {
-                roleRepairer.run(creep);
+            if(role.harvester.run(creep) === false) {
+                role.repairer.run(creep);
             }
             break;
-        case 'upgrader':
-            roleUpgrader.run(creep);
-            break;
         case 'builder':
-            if(roleBuilder.run(creep) === false) {
-                if(roleRepairer.run(creep) === false) {
-                    if(roleHarvester.run(creep) === false) {
-                        roleUpgrader.run(creep);
+            if(role.builder.run(creep) === false) {
+                if(role.repairer.run(creep) === false) {
+                    if(role.harvester.run(creep) === false) {
+                        role.upgrader.run(creep);
                     };
                 };
             };
             break;
-        case 'remoteHarvester':
-            remoteHarvester.run(creep);
-            break;
-        case 'defender':
-            roleDefender.run(creep);
-            break;
-        case 'claimer':
-            roleClaimer.run(creep);
-            break;
-        case 'relocater':
-            roleRelocater.run(creep);
-            break;
         case 'miner':
-            if(roleMiner.run(creep) === false) {
-                roleRepairer.run(creep);
+            if(role.iner.run(creep) === false) {
+                role.repairer.run(creep);
             }
             break;
-        case 'linkTransfer':
-            roleTransfer.run(creep);
-            break;
-        case 'bob':
-            roleBob.run(creep);
-            break;
-        case 'bootstrapper':
-            bootstrapper.run(creep);
-            break;
-        case dropHarvester.ROLE:
-            dropHarvester.run(creep);
-            break;
-        case dropMiner.ROLE:
-            dropMiner.run(creep);
-            break;
-        case carrier.ROLE:
-            carrier.run(creep);
-            break;
-        case combatant.ROLE:
-            combatant.run(creep);
-            break;
         default:
-            console.log(name + " has no known role ("+creep.memory.role+")");
+            var r = role[creep.memory.role];
+            if(r) {
+                r.run(creep);
+            } else {
+                console.log(name + " has no known role ("+creep.memory.role+")");
+            }
         }
     }
     
@@ -242,5 +217,12 @@ module.exports.loop = function () {
         var struct = Game.structures[name];
         if(struct.structureType != 'tower') { continue; }
         roleTower.run(struct);
+    }
+    
+    // Segmented stats are read every 15s.
+    if(Game.time % 50 == 0) {
+        const stats = utilStats.run();
+        // Memory.stats = stats;
+        RawMemory.segments[99] = JSON.stringify(stats);
     }
 }

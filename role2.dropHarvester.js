@@ -1,5 +1,5 @@
 const util = require('util');
-const pathing = require('pathing');
+const pathing = require('util.pathing');
 
 // Mostly-WORK harvester that drops on the ground (or in containers if 
 // available).
@@ -142,7 +142,7 @@ function pickSource(room) {
     return null;
 }
 
-const ELDER_EPSILON = 200; // TODO(baptr): tune.
+const ELDER_EPSILON = 150; // TODO(baptr): tune.
 
 // how many WORK parts to empty a source as it refills?
 // - assuming no time to repair containers/move/etc

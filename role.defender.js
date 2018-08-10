@@ -29,6 +29,9 @@ module.exports = {
            body.push(TOUGH, MOVE);
            available -= toughCost;
        }
+       if(body.length > MAX_CREEP_SIZE) {
+           body = body.slice(0, MAX_CREEP_SIZE);
+       }
        // body cost is a reasonable sort for TOUGH < MOVE < ATTACK
        // TODO(baptr): Though MOVE should be spent first, probably...
        body.sort((a,b) => BODYPART_COST[a] - BODYPART_COST[b]);

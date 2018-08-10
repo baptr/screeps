@@ -1,6 +1,6 @@
 const bootstrapper = require('role2.bootstrapper');
 const dropHarvester = require('role2.dropHarvester');
-const pathing = require('pathing');
+const pathing = require('util.pathing');
 const roleDefender = require('role.defender');
 const builder = require('role.builder');
 const miner = require('role2.miner');
@@ -115,6 +115,15 @@ function planMining(room) {
     _.forEach(minerals, m => {
         room.createConstructionSite(m.pos, STRUCTURE_EXTRACTOR);
     });
+}
+
+// XXX make this less annoying to apply
+function countCPU(id, f) {
+    const start = Game.cpu.getUsed();
+    const ret = f();
+    const end = Game.cpu.getUsed();
+    console.log(`CPU for ${id}: ${end-start}`);
+    return ret;
 }
 
 module.exports = {
