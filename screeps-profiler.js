@@ -32,7 +32,7 @@ function setupProfiler() {
         if (!!Memory.profiler.disableTick) {
           // Calculate the original duration, profile is enabled on the tick after the first call,
           // so add 1.
-          duration = Memory.profiler.disableTick - Memory.profiler.enabledTick + 1;
+          duration = Memory.profiler.disableTick - Memory.profiler.enabledTick;
         }
         const type = Memory.profiler.type;
         setupMemory(type, duration, filter);
@@ -189,14 +189,14 @@ const Profiler = {
   },
 
   output(passedOutputLengthLimit) {
-    const outputLengthLimit = passedOutputLengthLimit || 1000;
+    const outputLengthLimit = passedOutputLengthLimit || 5000;
     if (!Memory.profiler || !Memory.profiler.enabledTick) {
       return 'Profiler not active.';
     }
 
     const endTick = Math.min(Memory.profiler.disableTick || Game.time, Game.time);
-    const startTick = Memory.profiler.enabledTick + 1;
-    const elapsedTicks = endTick - startTick;
+    const startTick = Memory.profiler.enabledTick;
+    const elapsedTicks = 1 + endTick - startTick;
     const header = 'calls\t\ttime\t\tavg\t\tfunction';
     const footer = [
       `Avg: ${(Memory.profiler.totalTime / elapsedTicks).toFixed(2)}`,

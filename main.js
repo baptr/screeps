@@ -17,16 +17,24 @@ _.forEach(ROLE2S, r => {
     }
 })
 
-var pathing = require('util.pathing');
-var claimPlanner = require('plan.claim');
-var labPlanner = require('plan.lab');
-var planAttack = require('plan.attack');
-var utilStats = require('util.stats');
-var roomPlanner = require('plan.room');
+const PLANNERS = ['claim', 'lab', 'attack', 'room'];
+var plan = {};
+_.forEach(PLANNERS, p => {plan[p] = require('plan.'+p)});
 
-var roleTower = require('role.tower');
+const STRUCTS = ['tower'];
+var struct = {};
+_.forEach(STRUCTS, s => {struct[s] = require('struct.'+s)});
 
 var util = require('util');
+var pathing = require('util.pathing');
+var utilStats = require('util.stats');
+
+const profiler = require('screeps-profiler');
+profiler.enable();
+_.forEach(role, (m, r) => profiler.registerObject(m, 'role.'+r));
+_.forEach(plan, (m, p) => profiler.registerObject(m, 'plan.'+p));
+_.forEach(struct, (m, s) => profiler.registerObject(m, 'struct.'+s));
+
 
 const SPAWN_NAME = 'Spawn1';
 const BASE_NAME = Game.spawns[SPAWN_NAME].room.name; // 'W4N9';
@@ -83,100 +91,94 @@ if(DUMP_COSTS) {
     });
 }
 
-module.exports.loop = function () {
-    roomPlanner.run(Game.rooms.W5N8);
-    roomPlanner.run(Game.rooms.W4N8);
-    roomPlanner.run(Game.rooms.W5N3);
-    roomPlanner.run(Game.rooms.W6N9);
-    roomPlanner.run(Game.rooms.W8N7);
-    roomPlanner.run(Game.rooms.W7N3);
-    roomPlanner.run(Game.rooms.W7N9);
-    labPlanner.test();
-    claimPlanner.test();
-    planAttack.test();
-    // TODO(baptr): Set up better lab control.
-    // Game.getObjectById('5b4318745676c340a95fda83').runReaction(Game.getObjectById('5b4325e05676c340a95fe2d5'), Game.getObjectById('5b40a53a5676c340a95e62df'));
+const main = {
+runPlanners: function() {
+    plan.room.run(Game.rooms.W5N8);
+    plan.room.run(Game.rooms.W4N8);
+    plan.room.run(Game.rooms.W5N3);
+    plan.room.run(Game.rooms.W6N9);
+    plan.room.run(Game.rooms.W8N7);
+    plan.room.run(Game.rooms.W7N3);
+    plan.room.run(Game.rooms.W7N9);
+    plan.lab.test();
+    plan.claim.test();
+    plan.attack.test();
+},
+cleanup: function() {
+    var lost = [];
+    for(var name in Memory.creeps) {
+        if(!Game.creeps[name]) {
+            var plaque = name;
+            var achievement = Memory.creeps[name].delivered;
+            if(achievement) {
+                plaque += ' (delivered '+achievement+')';
+            }
+            lost.push(plaque)
+            delete Memory.creeps[name];
+        }
+    }
+    if(lost.length) { console.log('Lost '+lost); }
+},
+runBase: function() {
     var room = Game.rooms[BASE_NAME];
-    // Periodic cleanup
-    if(room.energyAvailable >= buildThreshold && Game.time % 20 == 0) {
-        var lost = [];
-        for(var name in Memory.creeps) {
-            if(!Game.creeps[name]) {
-                var plaque = name;
-                var achievement = Memory.creeps[name].delivered;
-                if(achievement) {
-                    plaque += ' (delivered '+achievement+')';
-                }
-                lost.push(plaque)
-                delete Memory.creeps[name];
-            }
+    var spawn = Game.spawns['Spawn1'];
+    
+    // TODO(baptr): Can this wait 20 ticks?
+    if(room.find(FIND_HOSTILE_CREEPS).length) {
+        console.log("We're under attack!!");
+        buildingSay(spawn, "Oh snap");
+        role.defender.spawn(spawn, {});
+    }
+    
+    var kinds = _.groupBy(Game.creeps, creep => (creep.memory.reloNextRole || creep.memory.role)+creep.memory.subtype);
+    _.forEach(colonyTargets, kind => {
+        var targets = kinds[kind.role+kind.subtype] || [];
+        if(targets.length >= kind.target) {
+            return;
         }
-        if(lost.length) { console.log('Lost '+lost); }
-        
-        // Spawn checks...
-        var spawn = Game.spawns['Spawn1'];
-        
-        // TODO(baptr): Can this wait 20 ticks?
-        if(room.find(FIND_HOSTILE_CREEPS).length) {
-            console.log("We're under attack!!");
-            buildingSay(spawn, "Oh snap");
-            role.defender.spawn(spawn, {});
+        if(kind.condition && !kind.condition(room)) {
+            return;
         }
-        
-        var kinds = _.groupBy(Game.creeps, creep => (creep.memory.reloNextRole || creep.memory.role)+creep.memory.subtype);
-        _.forEach(colonyTargets, kind => {
-            var targets = kinds[kind.role+kind.subtype] || [];
-            if(targets.length >= kind.target) {
-                return;
-            }
-            if(kind.condition && !kind.condition(room)) {
-                return;
-            }
-            if(kind.dynSpawn) {
-                kind.dynSpawn(spawn);
-                return false;
-            }
-            var id = kind.role;
-            if(kind.subtype) { id += kind.subtype }
-            var newName = id + '_' + Game.time;
-            var mem = kind.memory || {};
-            if(!mem.role) { mem.role = kind.role; }
-            mem.subtype = kind.subtype;
-            var cost = util.bodyCost(kind.body);
-            if(cost > room.energyAvailable) {
-                buildingSay(spawn, room.energyAvailable+'<'+cost);
-                return false; // Might be able to spawn something less important, but we should save up.
-            }
-            var ret = spawn.spawnCreep(kind.body, newName, {memory: mem});
-            buildingSay(spawn, targets.length+'/'+kind.target+' '+id);
+        if(kind.dynSpawn) {
+            kind.dynSpawn(spawn);
             return false;
-        })
-        
-        // TODO(baptr): Work this in to the normal hash.
-        if(room.energyAvailable > util.bodyCost(remoteUpgraderBody) && (kinds['upgrader_W5N9'] || []).length < 2) {
-            spawn.spawnCreep(remoteUpgraderBody, 'remoteUpgrader_W5N9_'+Game.time, {memory: 
-                {role: 'relocater', subtype: '_W5N9', reloRoom: 'W5N9', reloNextRole: 'upgrader',
-                    container: '5b4120c35676c340a95ea8f9'
-                }})
         }
-        
-        if(!spawn.spawning) {
-            var minerNeeded = room.memory.needMiner;
-            if(minerNeeded) {
-                //console.log("Need miner in " + room.name + " " + JSON.stringify(minerNeeded));
-                // TOOD(baptr): need src?
-                // XXX rename to dropMiner
-                role.dropMiner.spawn(spawn, minerNeeded.dest);
-                // XXX prevent multiple spawns.
-            }
+        var id = kind.role;
+        if(kind.subtype) { id += kind.subtype }
+        var newName = id + '_' + Game.time;
+        var mem = kind.memory || {};
+        if(!mem.role) { mem.role = kind.role; }
+        mem.subtype = kind.subtype;
+        var cost = util.bodyCost(kind.body);
+        if(cost > room.energyAvailable) {
+            buildingSay(spawn, room.energyAvailable+'<'+cost);
+            return false; // Might be able to spawn something less important, but we should save up.
         }
+        var ret = spawn.spawnCreep(kind.body, newName, {memory: mem});
+        buildingSay(spawn, targets.length+'/'+kind.target+' '+id);
+        return false;
+    })
+    
+    // TODO(baptr): Work this in to the normal hash.
+    if(room.energyAvailable > util.bodyCost(remoteUpgraderBody) && (kinds['upgrader_W5N9'] || []).length < 2) {
+        spawn.spawnCreep(remoteUpgraderBody, 'remoteUpgrader_W5N9_'+Game.time, {memory: 
+            {role: 'relocater', subtype: '_W5N9', reloRoom: 'W5N9', reloNextRole: 'upgrader',
+                container: '5b4120c35676c340a95ea8f9'
+            }})
     }
     
-    if(Game.spawns['Spawn1'].spawning) { 
-        var spawningCreep = Game.creeps[Game.spawns['Spawn1'].spawning.name];
-        buildingSay(Game.spawns['Spawn1'], '🛠️' + spawningCreep.memory.role);
+    if(!spawn.spawning) {
+        var minerNeeded = room.memory.needMiner;
+        if(minerNeeded) {
+            //console.log("Need miner in " + room.name + " " + JSON.stringify(minerNeeded));
+            // TOOD(baptr): need src?
+            // XXX rename to dropMiner
+            role.dropMiner.spawn(spawn, minerNeeded.dest);
+            // XXX prevent multiple spawns.
+        }
     }
-    
+},
+runCreeps: function() {
     for(var name in Game.creeps) {
         var creep = Game.creeps[name];
         // TODO(baptr): Some day I'm going to want to do something while some
@@ -212,12 +214,29 @@ module.exports.loop = function () {
             }
         }
     }
-    
+},
+runStructs: function() {
     for(var name in Game.structures) {
-        var struct = Game.structures[name];
-        if(struct.structureType != 'tower') { continue; }
-        roleTower.run(struct);
+        var s = Game.structures[name];
+        var m = struct[s.structureType];
+        if(m) m.run(s);
     }
+}
+}
+profiler.registerObject(main, 'main');
+
+module.exports.loop = () => profiler.wrap(() => {
+    main.runPlanners();
+    
+    if(Game.time % 20 == 0) {
+        // Periodic cleanup
+        main.cleanup();
+        
+        main.runBase();
+    }
+    
+    main.runCreeps();
+    main.runStructs();
     
     // Segmented stats are read every 15s.
     if(Game.time % 50 == 0) {
@@ -225,4 +244,4 @@ module.exports.loop = function () {
         // Memory.stats = stats;
         RawMemory.segments[99] = JSON.stringify(stats);
     }
-}
+})

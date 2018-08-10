@@ -96,11 +96,11 @@ run: function(creep) {
                 src = creep.pos.findClosestByPath(FIND_STRUCTURES, {filter:
                     s => s.structureType == STRUCTURE_CONTAINER && s.store.energy > 50
                 });
-                if(!src) {
-                    src = creep.pos.findClosestByPath(FIND_SOURCES_ACTIVE);
-                    if(!src) { return false; }
-                }
             }
+            if(!src) {
+                src = creep.pos.findClosestByPath(FIND_SOURCES_ACTIVE);
+            }
+            if(!src) { return false; }
             creep.memory.src = src.id;
         }
         var ret;

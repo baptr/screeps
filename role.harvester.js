@@ -40,7 +40,7 @@ module.exports = {
                 creep.memory.source = source.id;
             }
             if(creep.harvest(source) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(source, {visualizePathStyle: {stroke: '#ffaa00'}});
+                creep.moveTo(source);
             }
         } else {
             var target = Game.getObjectById(creep.memory.fillTarget);
@@ -64,7 +64,7 @@ module.exports = {
             }
             switch(creep.transfer(target, RESOURCE_ENERGY)) {
             case ERR_NOT_IN_RANGE:
-                creep.moveTo(target, {visualizePathStyle: {stroke: '#ffffff'}});
+                creep.moveTo(target);
                 break;
             case ERR_FULL:
                 delete creep.memory.fillTarget;

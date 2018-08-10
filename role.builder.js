@@ -67,7 +67,7 @@ spawn: function(spawn) {
 	        //var targets = creep.room.find(FIND_CONSTRUCTION_SITES).sort((a, b) => b.progress-a.progress);
 	        switch(creep.build(target)) {
 	        case ERR_NOT_IN_RANGE:
-	            creep.moveTo(target,  {visualizePathStyle: {stroke: '#ffffff'}});
+	            creep.moveTo(target);
 	            break;
 	        case OK:
 	            var delivery = creep.getActiveBodyparts(WORK)*BUILD_POWER;
