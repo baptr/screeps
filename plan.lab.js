@@ -14,7 +14,8 @@
 // B  O   H
 
 const VISUALIZE = true;
-const BUILD = false;
+const BUILD = true;
+const DEBUG = true;
 
 var INVERT_REACTIONS = {};
 _.forOwn(REACTIONS, (v, a) => _.forOwn(v, (c, b) => {
@@ -30,16 +31,19 @@ function planGhodium(pos) {
         return false
     }
     var locs = {};
-    const set = function(res, x, y) {
-        locs[res] = {pos: room.getPositionAt(x, y), tier: 1};
+    const set = function(res, x, y, tier=1) {
+        locs[res] = {pos: room.getPositionAt(x, y), tier: tier};
     }
-    set('G', pos.x, pos.y);
-    set('ZK', pos.x - 2, pos.y);
-    set('UL', pos.x + 2, pos.y);
+    set('G', pos.x, pos.y, 3);
+    set('ZK', pos.x - 2, pos.y, 2);
+    set('UL', pos.x + 2, pos.y, 2);
     set('Z', pos.x - 3, pos.y + 1);
     set('K', pos.x - 1, pos.y + 1);
     set('U', pos.x + 1, pos.y + 1);
     set('L', pos.x + 3, pos.y + 1);
+    
+    // Save this for runtime use (or reuse for another equivalent plan);
+    room.memory.labs = locs;
     
     return locs;
 }
@@ -158,7 +162,7 @@ function build(pos, res) {
     var labsNeeded = 0;
     const labsAvail = CONTROLLER_STRUCTURES[STRUCTURE_LAB][room.controller.level]; // XXX - already built...?
     for(var tLim = 1; tLim < 4; tLim++) {
-        labsNeeded += tiers[tLim].length;
+        labsNeeded += (tiers[tLim] || []).length;
         if(labsNeeded > labsAvail) break;
     }
     if(tLim == 1) {
@@ -189,9 +193,8 @@ function planMiners(room) {
         if(!lab) return;
         // XXX re-purpose the miner?
         if(lab.mineralAmount >= lab.mineralCapacity) return;
-        
-        // TODO(baptr): handle ghodium
-        if(r.length != 1) {
+
+        if(r.length != 1 || r == RESOURCE_GHODIUM && l.tier != 1) {
             var [left, right] = INVERT_REACTIONS[r];
             var lLab = Game.getObjectById(labs[left].struct);
             var rLab = Game.getObjectById(labs[right].struct);
@@ -202,16 +205,53 @@ function planMiners(room) {
             lab.runReaction(lLab, rLab);
             return;
         }
+        if(r == RESOURCE_GHODIUM) {
+            // find a ghodium output lab
+            var src = Game.getObjectById(l.src);
+            if(!src) {
+                // XXX probably better to iterate over all room memory directly...
+                _.forEach(Game.rooms, rm => {
+                    let gLabs = rm.memory.labs;
+                    if(!gLabs) return;
+                    _.forEach(gLabs, (gL, gR) => {
+                        if(gR != r) return;
+                        let gLab = Game.getObjectById(gL.struct);
+                        if(!gLab) return;
+                        if(gLab.id == lab.id) return;
+                        // XXX confirm it's actually right?
+                        if(gLab.mineralAmount > 0 && gLab.mineralType == 'G') {
+                            src = gLab;
+                            return false;
+                        }
+                    })
+                    if(src) {
+                        l.src = src.id;
+                        return false;
+                    }
+                })
+            }
+            if(!src) {
+                console.log("Couldn't find ghodium refinery");
+                return;
+            }
+            // TOOD(baptr): Better to go directly to carrier instead of having role2.miner decide that?
+            src.room.memory.needMiner = {res: RESOURCE_GHODIUM, src: src.id, dest: lab.id};
+            return;
+        }
         var src = Game.getObjectById(l.src);
-        if(!src) {
+        if(!src || src.mineralType != r) { // TODO(baptr): How is the mineral wrong?
             // Find one
             // TODO(baptr): Memoize?
             _.forEach(Game.rooms, (rm, n) => {
-                if(!rm.controller.my) return;
+                if(!rm.controller || !rm.controller.my) return;
                 
-                var m = rm.find(FIND_MINERALS, m => m.mineralType == r)[0];
+                var m = rm.find(FIND_MINERALS, {
+                    filter: m => m.mineralType == r,
+                })[0];
                 if(!m) return;
-                if(!m.pos.lookFor(LOOK_STRUCTURES, s => s.structureType == STRUCTURE_EXTRACTOR).length) return;
+                if(!m.pos.lookFor(LOOK_STRUCTURES, {
+                    filter: s => s.structureType == STRUCTURE_EXTRACTOR,
+                }).length) return;
                 src = m;
                 return false;
             });
@@ -238,8 +278,11 @@ module.exports = {
   test: function() {
     //build(Game.rooms.W4N8.getPositionAt(20, 26), RESOURCE_GHODIUM);
     if(Game.time%10 == 0) {
-        build(Game.rooms.W5N8.getPositionAt(38, 22), RESOURCE_CATALYZED_KEANIUM_ALKALIDE);
-        planMiners(Game.rooms.W5N8);
+        // XXX this doesn't work well for multiple rooms at once. the needMiner stuff falls apart.
+        // build(Game.rooms.W8N7.getPositionAt(32, 24), RESOURCE_GHODIUM);
+        planMiners(Game.rooms.W8N7);
+        // build(Game.rooms.W6N9.getPositionAt(15, 41), RESOURCE_CATALYZED_GHODIUM_ACID);
+        planMiners(Game.rooms.W6N9);
     }
   }
 };

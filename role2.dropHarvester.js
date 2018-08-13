@@ -1,3 +1,22 @@
+/* Profiling stats 2018-08-10
+calls	time	avg		function
+4655	1135.1	0.244	role.dropHarvester.run
+4623	596.1	0.129	Creep.harvest
+1687	365.7	0.217	Creep.repair
+6342	20.2	0.003	RoomPosition.inRangeTo
+2600	9.5		0.004	Creep.getActiveBodyparts
+32		8.9		0.278	Creep.moveTo
+2606	8.5		0.003	RoomPosition.isNearTo
+32		6.6		0.205	Creep.move
+26		5.6		0.214	Creep.moveByPath
+6		1.1		0.179	RoomPosition.findPathTo
+6		1.0		0.164	Room.findPath
+2		0.1		0.026	RoomPosition.lookFor
+12		0.1		0.004	RoomPosition.isEqualTo
+2		0.0		0.010	Room.lookForAt
+Avg: 18.47	Total: 7314.72	Ticks: 396
+*/
+
 const util = require('util.creep');
 const pathing = require('util.pathing');
 

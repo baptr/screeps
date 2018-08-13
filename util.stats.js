@@ -82,7 +82,7 @@ function globalStats() {
 }
 
 module.exports = {
-run: function() {
+run: function(cumCPU) {
     var out = globalStats();
     out.rooms = {};
     _.forEach(Game.rooms, r => {
@@ -90,6 +90,7 @@ run: function() {
         out.rooms[r.name] = roomStats(r);
         if(r.controller && r.controller.my) out.roomCount++;
     })
+    out.cumulativeCPU = cumCPU;
     out.tickCPU = Game.cpu.getUsed();
     return out;
 },

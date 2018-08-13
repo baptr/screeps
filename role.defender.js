@@ -50,13 +50,11 @@ module.exports = {
         if(!enemy) {
             spawn = creep.pos.findClosestByPath(FIND_MY_SPAWNS);
             if(!spawn) {
-                console.log(`${creep.name} suiciding`);
                 creep.say("No more!");
                 creep.suicide();
                 return false;
             }
-            console.log(`${creep.name} recycling`);
-            creep.say("Back to dust!");
+            creep.say("🔙 to dust!");
             creep.moveTo(spawn);
             spawn.recycleCreep(creep);
             return false;

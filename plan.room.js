@@ -4,6 +4,7 @@ const pathing = require('util.pathing');
 const roleDefender = require('role.defender');
 const builder = require('role.builder');
 const miner = require('role2.miner');
+const bob = require('role.bob');
 
 /* TODOs:
  - Add additional spawners at some point to avoid spawn time bottlenecks.
@@ -128,12 +129,12 @@ function countCPU(id, f) {
 module.exports = {
     run: function(room) {
         if(!room) {
-            if(Game.time % 100 == 0) console.log("No room provided to planner!");
+            if((Game.time/40) % 10 == 0) console.log("No room provided to planner!");
             return;
         }
         var spawn = room.find(FIND_MY_SPAWNS)[0];
         if(!spawn) {
-            if(Game.time % 100 == 0) console.log("Awaiting spawn in "+room.name);
+            if((Game.time/40) % 10 == 0) console.log("Awaiting spawn in", room.name);
             return;
         }
         if(room.find(FIND_HOSTILE_CREEPS).length > 0) {
@@ -142,16 +143,15 @@ module.exports = {
         }
         // TODO(baptr): Only do this when room control level changes,
         // or scale out the time further.
-        // TOOD(baptr): Should also splay these between rooms to smooth CPU
-        // spikes.
-        if(Game.time % 1000 == 0) {
+        // XXX just splay this instead of the whole room?
+        if((Game.time/100) % 10 == 0) {
             planBuilding(spawn.pos, STRUCTURE_EXTENSION);
             planBuilding(spawn.pos, STRUCTURE_TOWER);
             planRoads(room);
             planMining(room);
         }
         
-        if(Game.time % 10 == 0 && !spawn.spawning) {
+        if(!spawn.spawning) {
             spawnCreeps(spawn, room);
         }
     }
@@ -166,6 +166,7 @@ function spawnCreeps(spawn, room) {
         bootstrapper.spawn(spawn);
     }
     if(spawn.spawning) return;
+    // XXX If this stops running every tick, this sort of delay tactic will fail horribly.
     if(Game.time % 100 == 0) { // bleh
         dropHarvester.spawn(spawn);
     }
@@ -182,15 +183,25 @@ function spawnCreeps(spawn, room) {
         }
     }
     if(spawn.spawning) return;
+    
     var minerNeeded = room.memory.needMiner;
     if(minerNeeded) {
         // console.log("Need miner in " + room.name + " " + JSON.stringify(minerNeeded));
-        // TOOD(baptr): need src?
-        if(miner.spawn(spawn, minerNeeded.dest) == OK) {
+        if(miner.spawn(spawn, minerNeeded) == OK) {
             // Far from perfect since this will be re-written until the lab is
             // full, but will eventually stop spawns.
             // TODO(baptr): improve
             delete room.memory.needMiner;
+        }
+    }
+    if(spawn.spawning) return;
+    
+    var bobNeeded = room.memory.needBob;
+    if(bobNeeded && Game.time % 100 == 32) {
+        //console.log("bobNeeded:",JSON.stringify(bobNeeded));
+        //return;
+        if(bob.spawn(spawn, bobNeeded.res, bobNeeded.src, bobNeeded.dest) == OK) {
+            delete room.memory.needBob;
         }
     }
 }

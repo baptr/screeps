@@ -1,5 +1,5 @@
 const ROLES = ['harvester', 'remoteHarvester', 'upgrader', 'builder', 'repairer', 'defender', 'claimer', 'relocater', 'miner', 'linkTransfer', 'bob'];
-const ROLE2S = ['bootstrapper', 'dropHarvester', 'miner', 'combatant', 'dismantler'];
+const ROLE2S = ['bootstrapper', 'dropHarvester', 'miner', 'combatant', 'dismantler', 'carrier'];
 var role = {};
 _.forEach(ROLES, r => {
     role[r] = require('role.'+r);
@@ -25,12 +25,12 @@ const STRUCTS = ['tower'];
 var struct = {};
 _.forEach(STRUCTS, s => {struct[s] = require('struct.'+s)});
 
-const UTILS = ['creep', 'pathing', 'stats'];
+const UTILS = ['creep', 'pathing', 'stats', 'splay'];
 var util = {};
 _.forEach(UTILS, u => {util[u] = require('util.'+u)});
 
 const profiler = require('screeps-profiler');
-profiler.enable();
+//profiler.enable();
 _.forEach(role, (m, r) => profiler.registerObject(m, 'role.'+r));
 _.forEach(plan, (m, p) => profiler.registerObject(m, 'plan.'+p));
 _.forEach(struct, (m, s) => profiler.registerObject(m, 'struct.'+s));
@@ -172,9 +172,7 @@ runBase: function() {
         var minerNeeded = room.memory.needMiner;
         if(minerNeeded) {
             //console.log("Need miner in " + room.name + " " + JSON.stringify(minerNeeded));
-            // TOOD(baptr): need src?
-            // XXX rename to dropMiner
-            role.dropMiner.spawn(spawn, minerNeeded.dest);
+            role.dropMiner.spawn(spawn, minerNeeded);
             // XXX prevent multiple spawns.
         }
     }
@@ -240,8 +238,9 @@ module.exports.loop = () => profiler.wrap(() => {
     main.runStructs();
     
     // Segmented stats are read every 15s.
+    Memory.stats.cpu += Game.cpu.getUsed();
     if(Game.time % 50 == 0) {
-        const stats = util.stats.run();
+        const stats = util.stats.run(Memory.stats.cpu);
         // Memory.stats = stats;
         RawMemory.segments[99] = JSON.stringify(stats);
     }

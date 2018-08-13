@@ -1,3 +1,51 @@
+/* Profiling stats 2018-08-10
+7118		1050.3		0.148		Creep.getActiveBodyparts ** before removing
+Avg: 17.73	Total: 8865.23	Ticks: 500
+
+without the activeBodypart harvest check:
+calls		time		avg		    function
+11097		3382.5		0.305		role.bootstrapper.run
+3463		1109.2		0.320		Creep.moveTo
+4837		877.9		0.181		Creep.upgradeController
+3381		709.6		0.210		Creep.move
+2629		581.8		0.221		Creep.moveByPath
+3147		477.4		0.152		Creep.withdraw
+4026		392.3		0.097		RoomPosition.findClosestByPath
+759	    	211.0		0.278		RoomPosition.findPathTo
+759		    199.4		0.263		Room.findPath
+939		    132.6		0.141		Creep.harvest
+4026		93.8		0.023		Room.find
+956		    59.4		0.062		Creep.transfer
+5793		39.6		0.007		Creep.getActiveBodyparts
+7770		35.6		0.005		RoomPosition.isNearTo
+3313		18.4		0.006		RoomPosition.isEqualTo
+4782		16.7		0.003		RoomPosition.inRangeTo
+117	    	6.0		    0.051		Creep.pickup
+22		    0.1		    0.004		Game.getObjectById
+Avg: 16.74	Total: 8368.81	Ticks: 500
+
+with reusePath=10
+calls		time		avg		function
+10375		3267.6		0.315		role.bootstrapper.run
+4272		1294.7		0.303		Creep.moveTo
+4153		869.3		0.209		Creep.move
+3363		740.5		0.220		Creep.moveByPath
+3750		599.9		0.160		Creep.upgradeController
+4790		523.3		0.109		RoomPosition.findClosestByPath
+2516		308.6		0.123		Creep.withdraw
+808	    	200.9		0.249		RoomPosition.findPathTo
+808	    	189.5		0.235		Room.findPath
+1190		149.3		0.125		Creep.harvest
+4790		115.3		0.024		Room.find
+1404		84.0		0.060		Creep.transfer
+11767		38.4		0.003		RoomPosition.isNearTo
+7116		28.5		0.004		RoomPosition.isEqualTo
+3750		22.4		0.006		Creep.getActiveBodyparts
+240	    	14.0		0.058		Creep.pickup
+3702		13.2		0.004		RoomPosition.inRangeTo
+Avg: 16.01	Total: 8004.74	Ticks: 500
+*/
+
 var util = require('util.creep');
 
 const DEBUG = false;
@@ -120,12 +168,14 @@ run: function(creep) {
             delete creep.memory.src;
             break;
         case ERR_NOT_IN_RANGE:
-            if(creep.moveTo(src) == ERR_NO_PATH) {
+            if(creep.moveTo(src, {reusePath: 10}) == ERR_NO_PATH) {
                 delete creep.memory.src;
             }
             break;
         case OK:
-            if(creep.carry.energy + creep.getActiveBodyparts(WORK)*HARVEST_POWER >= creep.carryCapacity) {
+            // XXX this is rather expensive...
+            //if(creep.carry.energy + creep.getActiveBodyparts(WORK)*HARVEST_POWER >= creep.carryCapacity) {
+            if(creep.carry.energy == creep.carryCapacity) {
                 creep.memory.filling = false;
                 break;
             }
@@ -145,12 +195,11 @@ run: function(creep) {
             creep.memory.dest = dest.id;
         }
         
-        const workParts = creep.getActiveBodyparts(WORK);
         var effort;
         var ret;
         if(dest instanceof ConstructionSite) {
             ret = creep.build(dest);
-            effort = workParts*BUILD_POWER;
+            effort = creep.getActiveBodyparts(WORK)*BUILD_POWER;
         } else {
             switch(dest.structureType) {
             case STRUCTURE_SPAWN:
@@ -161,7 +210,7 @@ run: function(creep) {
                 break;
             case STRUCTURE_CONTROLLER:
                 ret = creep.upgradeController(dest);
-                effort = workParts*UPGRADE_CONTROLLER_POWER;
+                effort = creep.getActiveBodyparts(WORK)*UPGRADE_CONTROLLER_POWER;
                 break;
             default:
                 console.log(`${creep.name} unrecognized dest type ${dest.structureType}: ${dest}`);
@@ -172,7 +221,7 @@ run: function(creep) {
         
         switch(ret) {
         case ERR_NOT_IN_RANGE:
-            if(creep.moveTo(dest) == ERR_NO_PATH) {
+            if(creep.moveTo(dest, {reusePath: 10}) == ERR_NO_PATH) {
                 delete creep.memory.dest; // retry a few times?
             }
             break;
@@ -232,6 +281,9 @@ function findDest(creep) {
     }})
     if(dest) { return dest; }
     
+    // TODO(baptr): If the controller is already level 8, maybe count the number
+    // of WORK bodies already near it and find something else to do?
+    // (15/tick limit)
     if(ctrl && ctrl.my) {
         return ctrl;
     }

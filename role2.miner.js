@@ -1,6 +1,7 @@
 // Written to be a drop miner, but we probably want ~Adjacent Storage instead of
 // pure drop.
 const util = require('util.creep');
+const carrier = require('role2.carrier');
 
 const ROLE = 'dropMiner';
 
@@ -15,37 +16,68 @@ function findDest(ext) {
 
 module.exports = {
 ROLE: ROLE,
-spawn: function(spawn, destID = null) {
+spawn: function(spawn, opts) {
+    if(!opts) opts = {};
     const room = spawn.room;
+    
+    // Special case for ghodium destinations: just spawn a carrier
+    var dest = Game.getObjectById(opts.dest);
+    if(dest instanceof StructureLab && dest.mineralType == RESOURCE_GHODIUM) {
+        var src = Game.getObjectById(opts.src);
+        if(!src) {
+            // Find the matching lab here to pull from.
+            src = room.find(FIND_STRUCTURES, {
+                filter: s => s.structureType == STRUCTURE_LAB && s.mineralType == RESOURCE_GHODIUM,
+            })[0];
+        }
+        if(!src) {
+            console.log("Failed to spawn Ghodium carrier, no src lab in", room);
+            return false;
+        }
+        return carrier.spawn(spawn, opts);
+    }
+    
+    // TODO(baptr): Improve more of this using the src/res in opts.
     const extractors = room.find(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_EXTRACTOR});
-    if(extractors.length == 0) return false;
+    if(extractors.length == 0) {
+        if(DEBUG) console.log(room, "missing extractor");
+        return false;
+    }
     const minerals = room.find(FIND_MINERALS);
     const avail = _.sum(_.map(minerals, m => m.mineralAmount));
     
-    if(DEBUG) console.log(`Extractor is yes. avail is ${avail}`);
     // Won't respawn unless we empty it.
-    if(!avail) return false;
+    if(!avail) {
+        if(DEBUG) console.log(room, "no minerals available");
+        return false;
+    }
     
     // TOOD(baptr): Can switch from a global check if this becomes a drop miner again.
     const minIDs = _.map(minerals, m => m.id);
-    if(_.filter(Game.creeps,c => c.memory.role == ROLE && minIDs.includes(c.memory.mineral))) {
-        return false;
+    const oldMiners = _.filter(Game.creeps,c => c.memory.role == ROLE && minIDs.includes(c.memory.mineral));
+    if(oldMiners.length) {
+        if(!opts.dest || _.filter(oldMiners, c => c.memory.dest == opts.dest).length) {
+            if(DEBUG) console.log(`${room.name} has pre-existing ${minIDs} miners (${oldMiners})`);
+            return false;
+        }
     }
-    if(DEBUG) console.log('Existing creeps are ok');
     
-    var dest = Game.getObjectById(destID);
     if(!dest) {
         dest = findDest(extractors[0]);
     }
-    if(!dest) return false;
-    if(DEBUG) console.log('Dest found');
+    if(!dest) {
+        if(DEBUG) console.log(room, "unable to find destination");
+        return false;
+    }
     
     var availEng = room.energyAvailable;
     const maxEng = room.energyCapacityAvailable;
-    if(availEng < maxEng*0.9) return false;
-    if(DEBUG) console.log('Energy ok');
+    if(availEng < 3000) {
+        if(DEBUG) console.log(`${room} energy ${availEng} < ${maxEng*0.9}`);
+        return false;
+    }
     
-    // spawn is yes.
+    console.log(room, "spawn is yes.");
     
     var body = [WORK, MOVE, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE];
     availEng -= util.bodyCost(body);
