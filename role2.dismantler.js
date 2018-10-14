@@ -24,7 +24,7 @@ function planBody() {
 }
 
 function findTarget(target, creep) {
-    var ramps = target.room.find(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART});
+    var ramps = target.room.find(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_WALL});
     var target = creep.pos.findClosestByPath(ramps);
     if(target) {
         creep.memory.blocked = 0;
@@ -39,9 +39,11 @@ function findTarget(target, creep) {
         return friend;
     }
     
-    var wall = creep.pos.findClosestByPath(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_WALL});
-    // TODO(baptr): memorize?
-    return wall;
+    var wall = creep.pos.findClosestByPath(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART});
+    if(wall) {
+        creep.memory.target = wall.id;
+        return wall;
+    }
 }
 
 module.exports = {
@@ -63,6 +65,7 @@ run: function(creep) {
     if(creep.hits < creep.hitsMax && creep.getActiveBodyparts(HEAL)) {
         creep.heal(creep);
     }
+    
     var target = Game.getObjectById(creep.memory.target);
     if(!target) {
         target = findTarget(creep, creep);
@@ -79,17 +82,21 @@ run: function(creep) {
         } else {
             delete creep.memory.target;
         }
+    } else {
+        // TOOD(baptr): Could be less expensive.
+        var friend = creep.pos.findInRange(FIND_MY_CREEPS, 3, {filter: c => c.hits < c.hitsMax});
+        if(friend) creep.rangedHeal(friend);
     }
     if(creep.moveTo(target) == ERR_NO_PATH) {
         creep.memory.blocked++;
         if(creep.memory.blocked > 10) {
-            target = findTarget(target, creep);
+            delete creep.memory.target;
+            return;
         }
     };
     creep.dismantle(target);
 },
-test: function() {
-    const target = '5b6cf7799ea31d5ae1438a50';
+test: function(target = '5b6cf7799ea31d5ae1438a50') {
     var spawned = 0;
     _.forEach(Game.spawns, s => {
         if(module.exports.spawn(s, target) == OK) {

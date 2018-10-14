@@ -103,6 +103,15 @@ spacesNear: function(pos, range = 1, ignoreCreeps = true) {
                     if(ignoreCreeps) continue;
                 }
                 
+                if(t == 'wall') {
+                    // soft blocked, unless there's also a road...
+                    blocked = true;
+                    room.visual.rect(x-0.5, y-0.5, 1, 1, {fill: "#ff5555", opacity: 0.25});
+                }
+                if(blocked && t == STRUCTURE_ROAD && o.type == LOOK_STRUCTURES) {
+                    blocked = false;
+                    room.visual.rect(x-0.5, y-0.5, 1, 1, {fill: "#55ff55", opacity: 0.25});
+                }
                 if(OBSTACLE_OBJECT_TYPES.includes(t)) {
                     blocked = true;
                     room.visual.rect(x-0.5, y-0.5, 1, 1, {fill: "#ff0000", opacity: 0.25});

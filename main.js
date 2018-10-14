@@ -1,3 +1,6 @@
+const LOCALS = require('local');
+const ROOMS = LOCALS.ROOMS;
+
 const ROLES = ['harvester', 'remoteHarvester', 'upgrader', 'builder', 'repairer', 'defender', 'claimer', 'relocater', 'miner', 'linkTransfer', 'bob'];
 const ROLE2S = ['bootstrapper', 'dropHarvester', 'miner', 'combatant', 'dismantler', 'carrier'];
 var role = {};
@@ -21,6 +24,7 @@ const PLANNERS = ['claim', 'lab', 'attack', 'room'];
 var plan = {};
 _.forEach(PLANNERS, p => {plan[p] = require('plan.'+p)});
 
+
 const STRUCTS = ['tower'];
 var struct = {};
 _.forEach(STRUCTS, s => {struct[s] = require('struct.'+s)});
@@ -36,9 +40,8 @@ _.forEach(plan, (m, p) => profiler.registerObject(m, 'plan.'+p));
 _.forEach(struct, (m, s) => profiler.registerObject(m, 'struct.'+s));
 _.forEach(util, (m, u) => profiler.registerObject(m, 'util.'+u));
 
-
 const SPAWN_NAME = 'Spawn1';
-const BASE_NAME = Game.spawns[SPAWN_NAME].room.name; // 'W4N9';
+const BASE_NAME = LOCALS.BASE;
 const DUMP_COSTS = false;
 console.log('Reloading');
 
@@ -94,16 +97,15 @@ if(DUMP_COSTS) {
 
 const main = {
 runPlanners: function() {
-    plan.room.run(Game.rooms.W5N8);
-    plan.room.run(Game.rooms.W4N8);
-    plan.room.run(Game.rooms.W5N3);
-    plan.room.run(Game.rooms.W6N9);
-    plan.room.run(Game.rooms.W8N7);
-    plan.room.run(Game.rooms.W7N3);
-    plan.room.run(Game.rooms.W7N9);
+    _.forEach(ROOMS, r => {
+        plan.room.run(Game.rooms[r]);
+    })
+
     plan.lab.test();
     plan.claim.test();
-    plan.attack.test();
+    if(LOCALS.ATTACK) {
+      plan.attack.test();
+    }
 },
 cleanup: function() {
     var lost = [];
@@ -125,8 +127,9 @@ runBase: function() {
     var spawn = Game.spawns['Spawn1'];
     
     // TODO(baptr): Can this wait 20 ticks?
-    if(room.find(FIND_HOSTILE_CREEPS).length) {
-        console.log("We're under attack!!");
+    var hostiles = room.find(FIND_HOSTILE_CREEPS);
+    if(hostiles.length) {
+        console.log(room,"is under attack!!",hostiles);
         buildingSay(spawn, "Oh snap");
         role.defender.spawn(spawn, {});
     }
@@ -231,16 +234,18 @@ module.exports.loop = () => profiler.wrap(() => {
         // Periodic cleanup
         main.cleanup();
         
-        main.runBase();
+        if(LOCALS.BASE) {
+          main.runBase();
+        }
     }
     
     main.runCreeps();
     main.runStructs();
     
     // Segmented stats are read every 15s.
-    Memory.stats.cpu += Game.cpu.getUsed();
+    Memory.cpu_stats += Game.cpu.getUsed();
     if(Game.time % 50 == 0) {
-        const stats = util.stats.run(Memory.stats.cpu);
+        const stats = util.stats.run(Memory.cpu_stats);
         // Memory.stats = stats;
         RawMemory.segments[99] = JSON.stringify(stats);
     }

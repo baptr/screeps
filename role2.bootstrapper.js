@@ -59,6 +59,7 @@ const DEBUG = false;
 
 const MIN_BODY = [WORK, CARRY, MOVE];
 const MIN_COST = util.bodyCost(MIN_BODY);
+const ROLE = 'bootstrapper';
 
 const BUILD_STRUCTS = [
     STRUCTURE_SPAWN,
@@ -74,15 +75,17 @@ const BUILD_STRUCTS = [
 // - ((WORK, CARRY, MOVE) + MOVE) * N
 // - Spawned until there are 2x (harvester + carrier)
 module.exports = {
+ROLE,
 spawnCondition: function(spawn, roomKinds) {
     const energyCap = spawn.room.energyCapacityAvailable;
     const energyAvail = spawn.room.energyAvailable;
     const numSources = spawn.room.find(FIND_SOURCES).length;
     const numRole = r => (roomKinds[r] || []).length;
-    const numBoots = numRole('bootstrapper');
+    const numBoots = numRole(ROLE);
     // Hardcoded 6/4/2 was too much for a single-source room.
     // TODO(baptr): Scale down when first starting and getting assistance from another room.
-    if(numBoots >= numSources*3.5) { return false }
+    // XXX 3.5 for easier to harvest rooms...
+    if(numBoots >= numSources*2.5) { return false }
     // TODO(baptr): Tune limit before leaving more room for other types.
     if(energyCap > 1000 && numBoots >= numSources*2) {
         return false;
@@ -121,12 +124,12 @@ spawn: function(spawn, extMem={}) {
     extend([CARRY, MOVE])
     //extend([CARRY]) // TODO(baptr): worth it?
     
-    extMem.role = 'bootstrapper';
-    var ret = spawn.spawnCreep(body, 'bootstrapper-'+spawn.room.name+'-'+Game.time, {
+    extMem.role = ROLE;
+    var ret = spawn.spawnCreep(body, ROLE+'-'+spawn.room.name+'-'+Game.time, {
         memory: extMem,
     });
     if(ret != OK) {
-        console.log('Spawn attempt for bootstrapper: '+body+' : ' + ret);
+        console.log('Spawn attempt for bootstrapper in',spawn.room.name,': '+body+' : ' + ret);
     }
     return ret;
 },
@@ -255,8 +258,21 @@ run: function(creep) {
 };
 
 function findDest(creep) {
+    // Make sure we don't downgrade.
+    var ctrl = creep.room.controller;
+    if(ctrl && ctrl.my && ctrl.ticksToDowngrade < CONTROLLER_DOWNGRADE[ctrl.level] * 0.5) {
+        return ctrl;
+    }
+    
+    // Do easy upgrades.
+    // XXX should only happen after there are a bunch of bootstrappers...
+    if(ctrl && ctrl.my && ctrl.progress + 200 >= ctrl.progressTotal) {
+        return ctrl;
+    }
+    
     // Spawning structures.
     var dest = creep.pos.findClosestByPath(FIND_MY_STRUCTURES, {filter: s => {
+        if(!s.isActive) return false;
         switch(s.structureType) {
         case STRUCTURE_SPAWN:
         case STRUCTURE_EXTENSION:
@@ -269,7 +285,7 @@ function findDest(creep) {
     }});
     if(dest) { return dest; }
     
-    var ctrl = creep.room.controller;
+    // Try to keep it high.
     if(ctrl && ctrl.my && ctrl.ticksToDowngrade < CONTROLLER_DOWNGRADE[ctrl.level] * 0.9) {
         return ctrl;
     }

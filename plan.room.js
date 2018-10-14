@@ -132,12 +132,15 @@ module.exports = {
             if((Game.time/40) % 10 == 0) console.log("No room provided to planner!");
             return;
         }
-        var spawn = room.find(FIND_MY_SPAWNS)[0];
+        var spawns = room.find(FIND_MY_SPAWNS, {filter: s => s.isActive});
+        var spawn = spawns[0];
         if(!spawn) {
             if((Game.time/40) % 10 == 0) console.log("Awaiting spawn in", room.name);
             return;
         }
-        if(room.find(FIND_HOSTILE_CREEPS).length > 0) {
+        var hostiles = room.find(FIND_HOSTILE_CREEPS);
+        if(hostiles.length > 0) {
+            if(Game.time % 20 == 0) console.log(`${room} under attack: ${hostiles}`);
             roleDefender.spawn(spawn, {});
             return;
         }
@@ -151,21 +154,27 @@ module.exports = {
             planMining(room);
         }
         
-        if(!spawn.spawning) {
-            spawnCreeps(spawn, room);
-        }
+        _.forEach(spawns, s => {
+            // TOOD(baptr): Let the spawn functions pick spawn so they don't have to 
+            // recalculate all the room stuff.
+            if(!s.spawning) spawnCreeps(s, room);
+        });
     }
 };
 
 function spawnCreeps(spawn, room) {
     var creeps = room.find(FIND_MY_CREEPS);
     var kinds = _.groupBy(creeps, c => c.memory.role);
-    // var numRole = r => (kinds[r] || []).length;
+    var numRole = r => (kinds[r] || []).length;
     
+    // TODO(baptr): Make this more dynamic based on available harvest spots.
+    if(numRole(bootstrapper.ROLE) > 4 && numRole(dropHarvester.ROLE) < 2) {
+        dropHarvester.spawn(spawn);
+    }
+    if(spawn.spawning) return;
     if(bootstrapper.spawnCondition(spawn, kinds)) {
         bootstrapper.spawn(spawn);
     }
-    if(spawn.spawning) return;
     // XXX If this stops running every tick, this sort of delay tactic will fail horribly.
     if(Game.time % 100 == 0) { // bleh
         dropHarvester.spawn(spawn);

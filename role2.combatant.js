@@ -1,5 +1,6 @@
 const util = require('util.creep');
 const pathing = require('util.pathing');
+const dismantler = require('role2.dismantler');
 
 const ROLE = 'combatant';
 
@@ -19,8 +20,15 @@ function run(creep) {
     if(!creep.memory.charge && creep.ticksToLive > 300) return;
     
     var target = Game.getObjectById(creep.memory.target);
+    if(target && Game.time%20 == 0 && target instanceof StructureRampart) {
+        // Don't latch on too long if there are other, better busters around.
+        var busters = creep.room.find(FIND_MY_CREEPS, {filter: c => c.memory.role == dismantler.ROLE});
+        if(busters.length > 2) {
+            delete creep.memory.target;
+        }
+    }
     if(!target) {
-        
+        /*
         var creeps = creep.room.find(FIND_HOSTILE_CREEPS);
         // TODO(baptr): Prioritize healers >~ dangerous attackers >~ towers >~ weak attackers?
         // TODO(baptr): Ideally we'd get in their face, but fall back on getting within range...
@@ -32,9 +40,14 @@ function run(creep) {
         // TODO(baptr): Share the cost matrix between attackers
         var costMatrix
         PathFinder.search(creep.pos, meleeGoals, {maxRooms: 1, maxCost: 100});
+        */
+        target = creep.pos.findClosestByPath(FIND_HOSTILE_CREEPS, {filter:
+            c => !c.pos.lookFor(LOOK_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART}).length
+        });
         
-        
-        target = creep.pos.findClosestByPath(FIND_HOSTILE_STRUCTURES, s => s.structureType != STRUCTURE_CONTROLLER);
+        if(!target) {
+            target = creep.pos.findClosestByPath(FIND_HOSTILE_STRUCTURES, s => s.structureType != STRUCTURE_CONTROLLER);
+        }
         if(!target) {
             target = creep.pos.findClosestByRange(FIND_HOSTILE_CREEPS, {filter:
                 c => !c.pos.lookFor(LOOK_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART}).length

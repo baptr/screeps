@@ -280,9 +280,9 @@ module.exports = {
     if(Game.time%10 == 0) {
         // XXX this doesn't work well for multiple rooms at once. the needMiner stuff falls apart.
         // build(Game.rooms.W8N7.getPositionAt(32, 24), RESOURCE_GHODIUM);
-        planMiners(Game.rooms.W8N7);
+        //planMiners(Game.rooms.W8N7);
         // build(Game.rooms.W6N9.getPositionAt(15, 41), RESOURCE_CATALYZED_GHODIUM_ACID);
-        planMiners(Game.rooms.W6N9);
+        //planMiners(Game.rooms.W6N9);
     }
   }
 };
