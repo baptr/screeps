@@ -47,6 +47,7 @@ Avg: 16.01	Total: 8004.74	Ticks: 500
 */
 
 var util = require('util.creep');
+const BodyBuilder = require('util.bodybuilder');
 
 const DEBUG = false;
 
@@ -85,7 +86,7 @@ spawnCondition: function(spawn, roomKinds) {
     // Hardcoded 6/4/2 was too much for a single-source room.
     // TODO(baptr): Scale down when first starting and getting assistance from another room.
     // XXX 3.5 for easier to harvest rooms...
-    if(numBoots >= numSources*2.5) { return false }
+    if(numBoots >= numSources*5) { return false }
     // TODO(baptr): Tune limit before leaving more room for other types.
     if(energyCap > 1000 && numBoots >= numSources*2) {
         return false;
@@ -102,34 +103,22 @@ spawn: function(spawn, extMem={}) {
     const energyAvailable = spawn.room.energyAvailable;
     if(energyAvailable < MIN_COST || spawn.spawning) { return false; }
     
-    var body = MIN_BODY.slice();
-    var cost = MIN_COST;
+    var builder = new BodyBuilder(MIN_BODY, energyAvailable);
     
-    var extend = function(parts, limit=0) {
-        let c = util.bodyCost(parts);
-        let i = 0;
-        while(cost + c <= energyAvailable && body.length + parts.length <= MAX_CREEP_SIZE) {
-            body.push(...parts);
-            cost += c;
-            i++;
-            if(limit > 0 && i >= limit) {
-                break;
-            }
-        }
-    }
-    
-    extend([MOVE], limit=1);
-    extend([WORK, CARRY, MOVE, MOVE]);
-    extend([WORK, MOVE], limit=1);
-    extend([CARRY, MOVE])
+    builder.extend([MOVE], limit=1);
+    builder.extend([WORK, CARRY, MOVE, MOVE]);
+    builder.extend([WORK, MOVE], limit=1);
+    builder.extend([CARRY, MOVE])
     //extend([CARRY]) // TODO(baptr): worth it?
     
+    builder.sort();
+    
     extMem.role = ROLE;
-    var ret = spawn.spawnCreep(body, ROLE+'-'+spawn.room.name+'-'+Game.time, {
+    var ret = spawn.spawnCreep(builder.body, ROLE+'-'+spawn.room.name+'-'+Game.time, {
         memory: extMem,
     });
     if(ret != OK) {
-        console.log('Spawn attempt for bootstrapper in',spawn.room.name,': '+body+' : ' + ret);
+        console.log('Spawn attempt for bootstrapper in',spawn.room.name,': '+builder.body+' : ' + ret);
     }
     return ret;
 },
@@ -151,7 +140,12 @@ run: function(creep) {
             if(!src) {
                 src = creep.pos.findClosestByPath(FIND_SOURCES_ACTIVE);
             }
-            if(!src) { return false; }
+            if(!src) { 
+                if(creep.energy > 0) {
+                    creep.memory.filling = false;
+                }
+                return false;
+            }
             creep.memory.src = src.id;
         }
         var ret;
@@ -167,7 +161,6 @@ run: function(creep) {
             creep.memory.filling = false;
             break;
         case ERR_NOT_ENOUGH_RESOURCES:
-            // creep.memory.filling = false;
             delete creep.memory.src;
             break;
         case ERR_NOT_IN_RANGE:
@@ -180,8 +173,8 @@ run: function(creep) {
             //if(creep.carry.energy + creep.getActiveBodyparts(WORK)*HARVEST_POWER >= creep.carryCapacity) {
             if(creep.carry.energy == creep.carryCapacity) {
                 creep.memory.filling = false;
-                break;
             }
+            break;
         }
         if(!creep.memory.filling) {
             // TODO(baptr): feels a little weird to re-prioritize every fill,

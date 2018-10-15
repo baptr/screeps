@@ -1,6 +1,7 @@
 const util = require('util.creep');
 const pathing = require('util.pathing');
 const dismantler = require('role2.dismantler');
+const BodyBuilder = require('util.bodybuilder');
 
 const ROLE = 'combatant';
 
@@ -83,30 +84,15 @@ function run(creep) {
   - Specialized roles? healer, ranged, melee, tank?
 */
 module.exports = {
-ROLE: ROLE,
+ROLE,
 spawn: function(spawn, gather, target) {
     const energyAvailable = spawn.room.energyAvailable;
     // XXX find a cleaner way to save up
     if(energyAvailable < MIN_COST*2 || spawn.spawning) { return false; }
     
-    var body = MIN_BODY.slice();
-    var cost = MIN_COST;
-    
-    var extend = function(parts, limit=0) {
-        let c = util.bodyCost(parts);
-        let i = 0;
-        while(cost + c <= energyAvailable && body.length + parts.length <= MAX_CREEP_SIZE) {
-            body.push(...parts);
-            cost += c;
-            i++;
-            if(limit > 0 && i >= limit) {
-                break;
-            }
-        }
-    }
-    
-    extend([ATTACK, MOVE], limit=8);
-    extend([TOUGH, MOVE]);
+    var builder = new BodyBuilder(MIN_BODY, energyAvailable);
+    builder.extend([ATTACK, MOVE], limit=8);
+    var body = builder.extend([TOUGH, MOVE]);
     
     const bodySort = {};
     bodySort[TOUGH] = 1;

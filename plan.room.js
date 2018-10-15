@@ -175,6 +175,7 @@ function spawnCreeps(spawn, room) {
     if(bootstrapper.spawnCondition(spawn, kinds)) {
         bootstrapper.spawn(spawn);
     }
+    if(spawn.spawning) return;
     // XXX If this stops running every tick, this sort of delay tactic will fail horribly.
     if(Game.time % 100 == 0) { // bleh
         dropHarvester.spawn(spawn);

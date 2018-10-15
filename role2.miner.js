@@ -2,6 +2,7 @@
 // pure drop.
 const util = require('util.creep');
 const carrier = require('role2.carrier');
+const BodyBuilder = require('util.bodybuilder');
 
 const ROLE = 'dropMiner';
 
@@ -15,7 +16,7 @@ function findDest(ext) {
 }
 
 module.exports = {
-ROLE: ROLE,
+ROLE,
 spawn: function(spawn, opts) {
     if(!opts) opts = {};
     const room = spawn.room;
@@ -79,14 +80,9 @@ spawn: function(spawn, opts) {
     
     console.log(room, "spawn is yes.");
     
-    var body = [WORK, MOVE, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE];
-    availEng -= util.bodyCost(body);
-    const bodyNode = [WORK, WORK, MOVE, MOVE];
-    const costDelta = util.bodyCost(bodyNode);
-    while(availEng >= costDelta && body.length + bodyNode.length <= MAX_CREEP_SIZE) {
-        body.push(...bodyNode);
-        availEng -= costDelta;
-    }
+    var builder = BodyBuilder([WORK, MOVE, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE], availEng);
+    var body = builder.extend([WORK, WORK, MOVE, MOVE]);
+
     // Order WORK -> MOVE -> CARRY (-> 1 MOVE) to soak some damage if necessary.
     const order = {};
     order[WORK] = 1;
@@ -94,7 +90,7 @@ spawn: function(spawn, opts) {
     order[CARRY] = 3;
     body.sort((a, b) => order[a] - order[b]);
     
-    var ret = spawn.spawnCreep(body, `miner-${room.name}-${Game.time}`, {memory: {
+    var ret = spawn.spawnCreep(body, `${ROLE}r-${room.name}-${Game.time}`, {memory: {
         role: ROLE,
         extractor: extractors[0].id,
         mineral: minerals[0].id,

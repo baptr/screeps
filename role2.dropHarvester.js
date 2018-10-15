@@ -19,6 +19,7 @@ Avg: 18.47	Total: 7314.72	Ticks: 396
 
 const util = require('util.creep');
 const pathing = require('util.pathing');
+const BodyBuilder = require('util.bodybuilder');
 
 // Mostly-WORK harvester that drops on the ground (or in containers if 
 // available).
@@ -42,27 +43,24 @@ spawn: function(spawn) {
     if(availEnergy < MIN_HARVESTER_COST || spawn.spawning) { return false; }
     
     var targetSource = pickSource(room);
-    if(!targetSource) { return; }   
+    if(!targetSource) { return false; }
     
-    // TODO(baptr): body builder class...
-    var body = HARVESTER_BODY.slice();
-    if(availEnergy < HARVESTER_COST) {
-        body = MIN_HARVESTER_BODY.slice();
-    }
-    if(util.bodyCost(body) + BODYPART_COST[CARRY] <= availEnergy) {
-        body.push(CARRY);
-    }
-    if(util.bodyCost(body) + BODYPART_COST[CARRY] <= availEnergy) {
-        body.push(CARRY);
-    }
+    var builder = new BodyBuilder([WORK, WORK, MOVE], availEnergy);
+    
+    builder.extend([WORK], limit=HARVESTER_WORKS - builder.count(WORK));
+    builder.extend([CARRY], limit=1);
+    builder.extend([MOVE], limit=builder.count(WORK)+builder.count(CARRY));
+    builder.sort();
+    
     const name = `${ROLE}-${room.name}-${Game.time}`
-    var ret = spawn.spawnCreep(body, name, {memory: {
+    var ret = spawn.spawnCreep(builder.body, name, {memory: {
         role: ROLE,
         src: targetSource.id,
     }});
     if(ret != OK) {
-        console.log(`Spawning ${name} (${body}) = ${ret}`);
+        console.log(`Spawning ${name} (${builder.body}) = ${ret}`);
     }
+    return true;
 },
 run: function(creep) {
     var src = Game.getObjectById(creep.memory.src);
@@ -119,8 +117,8 @@ run: function(creep) {
         break;
     }
 },
-ROLE: ROLE,
-pickSource: pickSource,
+ROLE,
+pickSource,
 };
 
 // XXX this feels expensive...
@@ -171,11 +169,5 @@ const ELDER_EPSILON = 150; // TODO(baptr): tune.
 const HARVESTER_WORKS = SOURCE_ENERGY_CAPACITY / (HARVEST_POWER * ENERGY_REGEN_TIME); // (5)
 
 // Could be smaller, but bootstrappers can handle the initial setup, so why bother?
-const MIN_HARVESTER_BODY = [WORK, WORK, MOVE, MOVE];
+const MIN_HARVESTER_BODY = [WORK, WORK, MOVE];
 const MIN_HARVESTER_COST = util.bodyCost(MIN_HARVESTER_BODY);
-
-// Don't strictly need full MOVEs but we don't want to waste much time below
-// optimal harvesting.
-// TODO(baptr): Optimize when roads are common.
-const HARVESTER_BODY = Array(HARVESTER_WORKS).fill(WORK).concat(Array(HARVESTER_WORKS).fill(MOVE));
-const HARVESTER_COST = util.bodyCost(HARVESTER_BODY);

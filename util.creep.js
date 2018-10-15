@@ -1,8 +1,9 @@
-// TODO(baptr): Add a BodyBuilder class.
-module.exports = {
-bodyCost: function(body) {
+function bodyCost(body) {
     return _.sum(body, p => BODYPART_COST[p.type || p]);
-},
+}
+
+module.exports = {
+bodyCost,
 creepReport: function(roomName) {
     const room = Game.rooms[roomName];
     if(!room) {
@@ -15,5 +16,5 @@ creepReport: function(roomName) {
     _.forEach(kinds, (v, k) => {
         console.log(`${k}: ${v.length}`);
     });
-}
+},
 };
