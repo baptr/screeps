@@ -10,12 +10,14 @@ function run(claimFlag) {
     var spawnPos = claimFlag.pos;
     var roomName = spawnPos.roomName;
     const obs = Game.getObjectById(module.exports.observer);
-    if(!obs) {
-        console.log('Unable to use observer for claim planning');
-    }
-    var ret = obs.observeRoom(roomName);
-    if(ret != OK) {
-        console.log(`Unable to observe ${roomName} from ${obs}: ${ret}`);
+    if(obs) {
+        var ret = obs.observeRoom(roomName);
+        if(ret != OK) {
+            console.log(`Unable to observe ${roomName} from ${obs}: ${ret}`);
+        }
+    } else {
+        // TODO(baptr): Spawn a scout to send there instead
+        // (if it's not already visible...)
     }
     const room = Game.rooms[roomName];
     if(!room) {

@@ -2,7 +2,7 @@ const LOCALS = require('local');
 const ROOMS = LOCALS.ROOMS;
 
 const ROLES = ['harvester', 'remoteHarvester', 'upgrader', 'builder', 'repairer', 'defender', 'claimer', 'relocater', 'miner', 'linkTransfer', 'bob'];
-const ROLE2S = ['bootstrapper', 'dropHarvester', 'miner', 'combatant', 'dismantler', 'carrier'];
+const ROLE2S = ['bootstrapper', 'dropHarvester', 'miner', 'combatant', 'dismantler', 'carrier', 'scout'];
 var role = {};
 _.forEach(ROLES, r => {
     role[r] = require('role.'+r);

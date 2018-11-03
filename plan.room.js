@@ -63,14 +63,21 @@ function numBuilding(room, type) {
 // - Maybe leave a good path there (best path from spawn?)
 // - Or maybe diamond around the sources themselves?
 // TODO(baptr): Memoize this in room memory until controller level changes.
-function planBuilding(pos, type) {
+function planBuildings(pos, types) {
     const room = Game.rooms[pos.roomName];
     if(!room) {
         console.log("Invalid room in planBuilding pos: "+pos);
         return;
     }
-    var [numBld, maxBld] = numBuilding(room, type);
-    if(numBld >= maxBld) { return; }
+    
+    var queue = [];
+    _.forEach(types, t => {
+        var [numBld, maxBld] = numBuilding(room, t);
+        if(numBld >= maxBld) return;
+        queue.push(...Array(maxBld-numBld).fill(t));
+    })
+    var type = queue.shift();
+    if(!type) { return; }
 
     // TODO(baptr): Should really test path distance from sources, not linear
     // distance from spawn...
@@ -87,20 +94,20 @@ function planBuilding(pos, type) {
                 switch(ret) {
                 case OK:
                     console.log(`Scheduled ${type} @ (${x}, ${y})`);
-                    numBld++;
-                    if(numBld >= maxBld) { return; }
+                    type = queue.shift();
+                    if(!type) { return; }
                     continue;
                 case ERR_FULL:
                     console.log(`Too many construction sites in ${room}`);
                     return;
                 case ERR_RCL_NOT_ENOUGH:
                     // Shouldn't happen
-                    console.log(`RCL_NOT_ENOUGH trying to add a ${type} for ${numBld} < ${maxBld}`);
+                    console.log(`RCL_NOT_ENOUGH trying to add a ${type}`);
                     return;
                 case ERR_INVALID_TARGET:
                     continue;
                 default:
-                    console.log(`Create ${numBld} < ${maxBld} @ (${x}, ${y}) = ${ret}`);
+                    console.log(`Create ${type} @ (${x}, ${y}) = ${ret}`);
                 }
             }
         }
@@ -147,11 +154,11 @@ module.exports = {
         // TODO(baptr): Only do this when room control level changes,
         // or scale out the time further.
         // XXX just splay this instead of the whole room?
-        if((Game.time/100) % 10 == 0) {
-            planBuilding(spawn.pos, STRUCTURE_EXTENSION);
-            planBuilding(spawn.pos, STRUCTURE_TOWER);
+        if(room.controller.level > (room.memory.level || 0) || (Game.time/100) % 10 == 0) {
+            planBuildings(spawn.pos, [STRUCTURE_EXTENSION, STRUCTURE_TOWER]);
             planRoads(room);
             planMining(room);
+            room.memory.level = room.controller.level;
         }
         
         _.forEach(spawns, s => {
@@ -159,7 +166,7 @@ module.exports = {
             // recalculate all the room stuff.
             if(!s.spawning) spawnCreeps(s, room);
         });
-    }
+    },
 };
 
 function spawnCreeps(spawn, room) {

@@ -72,6 +72,11 @@ const BUILD_STRUCTS = [
     STRUCTURE_EXTRACTOR,
 ];
 
+function trace(creep, msg) {
+    if(!creep.memory.trace) return;
+    console.log(creep.name+": "+msg);
+}
+
 // "Balanced" type (role.bootstrap):
 // - ((WORK, CARRY, MOVE) + MOVE) * N
 // - Spawned until there are 2x (harvester + carrier)
@@ -126,6 +131,7 @@ spawn: function(spawn, extMem={}) {
 run: function(creep) {
     if(creep.memory.filling) {
         var src = Game.getObjectById(creep.memory.src); // TODO(baptr): Figure out when to unlatch.
+        trace(creep, `filling. held src: ${creep.memory.src} = ${src}`);
         if(!src) {
             src = creep.pos.findClosestByPath(FIND_DROPPED_RESOURCES, {
                 // TODO(baptr): Figure out a better way to not wait around for
@@ -138,14 +144,18 @@ run: function(creep) {
                 });
             }
             if(!src) {
+                // TODO(baptr): Look at all sources to move close while they're
+                // respawning.
                 src = creep.pos.findClosestByPath(FIND_SOURCES_ACTIVE);
             }
-            if(!src) { 
-                if(creep.energy > 0) {
+            if(!src) {
+                trace(creep, `unable to find src. existing energy ${creep.carry.energy}`);
+                if(creep.carry.energy > 0) {
                     creep.memory.filling = false;
                 }
                 return false;
             }
+            trace(creep, `new src: ${src} (${src.id})`);
             creep.memory.src = src.id;
         }
         var ret;
@@ -156,12 +166,17 @@ run: function(creep) {
         } else {
             ret = creep.harvest(src);
         }
+        trace(creep, `gather ret: ${ret}`);
         switch(ret) {
         case ERR_FULL:
             creep.memory.filling = false;
             break;
         case ERR_NOT_ENOUGH_RESOURCES:
             delete creep.memory.src;
+            // TOOD(baptr): If there's something nearby, grab from that before deliverying.
+            if(creep.carry.energy > 0) {
+                creep.memory.filling = false;
+            }
             break;
         case ERR_NOT_IN_RANGE:
             if(creep.moveTo(src, {reusePath: 10}) == ERR_NO_PATH) {
@@ -187,8 +202,12 @@ run: function(creep) {
         var dest = Game.getObjectById(creep.memory.dest);
         if(!dest) {
             dest = findDest(creep);
-            if(!dest) { return false; }
+            if(!dest) { 
+                console.log(creep.name, " has nowhere to go :(");
+                return false;
+            }
             creep.memory.dest = dest.id;
+            creep.memory.stuck = 0;
         }
         
         var effort;
@@ -218,7 +237,11 @@ run: function(creep) {
         switch(ret) {
         case ERR_NOT_IN_RANGE:
             if(creep.moveTo(dest, {reusePath: 10}) == ERR_NO_PATH) {
-                delete creep.memory.dest; // retry a few times?
+                creep.memory.stuck++;
+                if(creep.memory.stuck > 5) {
+                    console.log(`${creep.name} unable to reach ${dest}, respinning`);
+                    delete creep.memory.dest;
+                }
             }
             break;
         case ERR_FULL:
@@ -263,7 +286,7 @@ function findDest(creep) {
         return ctrl;
     }
     
-    // Spawning structures.
+    // Supply spawning structures.
     var dest = creep.pos.findClosestByPath(FIND_MY_STRUCTURES, {filter: s => {
         if(!s.isActive) return false;
         switch(s.structureType) {

@@ -18,11 +18,12 @@ module.exports = {
             curCost += extraCost;
             workCount++;
         }
-        const toughCost = util.bodyCost([MOVE, TOUGH]);
+        // TODO(baptr): These don't always need to be so tough...
+        /*const toughCost = util.bodyCost([MOVE, TOUGH]);
         while(spawn.room.energyAvailable > curCost+toughCost && body.length+2 <= MAX_CREEP_SIZE) {
             body.push(MOVE, TOUGH);
             curCost += toughCost;
-        }
+        }*/
         
         // Reasonable proxy for getting tough first and claim last.
         body.sort((a,b) => BODYPART_COST[a] - BODYPART_COST[b]);

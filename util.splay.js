@@ -22,12 +22,11 @@ register: function(cls, id) {
     return next;
 },
 isTurn: function(cls, id) {
-    // auto-register?
+    if(!Memory.splay) module.exports.register(cls, id);
     const reg = Memory.splay[cls];
     var lim = _.max(_.values(reg));
-    const offset = reg[id];
+    var offset = reg[id];
     if(!offset) {
-        // XXX auto-register??
         console.log(`splay.isTurn(${cls}, ${id}): unregistered!`);
         offset = module.exports.register(cls, id);
         if(offset > lim) lim = offset;

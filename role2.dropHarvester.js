@@ -31,6 +31,8 @@ const BodyBuilder = require('util.bodybuilder');
 // TODO(baptr): Is it actually better to time it perfectly, or to drain the
 // the source as fast as possible? Slow and steady means more waiting...
 // TODO(baptr): Limit number of harvester/source to the space available.
+// TOOD(baptr): Create a second container if the first one is filling up. (But 
+// remember 5 limit)
 const ROLE = 'dropHarvester';
 module.exports = {
 // XXX room vs spawn
