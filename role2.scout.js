@@ -15,6 +15,6 @@ run: function(creep) {
         console.log("nothing to do, good day!")
         creep.suicide();
     }
-    creep.moveTo(new RoomPosition(25, 25, target));
+    creep.moveTo(new RoomPosition(25, 25, target), {visualizePathStyle: {}, reusePath: 100});
 }
 };

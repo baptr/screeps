@@ -1,7 +1,7 @@
 const LOCALS = require('local');
 
-const ROLES = ['harvester', 'remoteHarvester', 'upgrader', 'builder', 'repairer', 'defender', 'claimer', 'relocater', 'miner', 'linkTransfer', 'bob'];
-const ROLE2S = ['bootstrapper', 'dropHarvester', 'miner', 'combatant', 'dismantler', 'carrier', 'scout'];
+const ROLES = ['harvester', 'remoteHarvester', 'upgrader', 'repairer', 'defender', 'claimer', 'relocater', 'miner', 'linkTransfer', 'bob'];
+const ROLE2S = ['bootstrapper', 'dropHarvester', 'builder', 'miner', 'combatant', 'dismantler', 'carrier', 'scout', 'hauler', 'storeUpgrader', 'recycle'];
 var role = {};
 _.forEach(ROLES, r => {
     role[r] = require('role.'+r);
@@ -66,10 +66,13 @@ cleanup: function() {
     var lost = [];
     for(var name in Memory.creeps) {
         if(!Game.creeps[name]) {
+            const mem = Memory.creeps[name];
             var plaque = name;
-            var achievement = Memory.creeps[name].delivered;
-            if(achievement) {
-                plaque += ' (delivered '+achievement+')';
+            if(mem.delivered) {
+                plaque += ' (delivered '+mem.delivered+')';
+            }
+            if(mem.cost) {
+                plaque += ' (cost '+mem.cost+')';
             }
             lost.push(plaque)
             delete Memory.creeps[name];

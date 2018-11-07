@@ -1,5 +1,5 @@
 const claimer = require('role.claimer');
-const builder = require('role.builder');
+const builder = require('role2.builder');
 const relocater = require('role.relocater');
 const bootstrapper = require('role2.bootstrapper');
 
@@ -53,9 +53,13 @@ function run(claimFlag) {
             if(spawn.spawning) return;
             // TODO(baptr): Avoid a thundering herd so the bodies are better.
             var body = builder.mkBody(spawn.room.energyAvailable);
-            var ret = spawn.spawnCreep(body, `relo-builder-${roomName}-${Game.time}`, {memory: relocater.setMem({}, roomName, 'bootstrapper')});
+            if(!body) return;
+            const name = `relo-builder-${roomName}-${Game.time}`;
+            var ret = spawn.spawnCreep(body, name, {
+                memory: relocater.setMem({}, roomName, 'bootstrapper'),
+            });
             if(ret == OK) return;
-            console.log(`Tried to spawn relo builder for ${roomName}: ${ret}`);
+            console.log(`Failed to spawn ${name}: ${ret}`);
         } else {
             // TODO figure out a place for it via roomPlanner?
             var ret = room.createConstructionSite(spawnPos.x, spawnPos.y, STRUCTURE_SPAWN, 'Spawn'+roomName);

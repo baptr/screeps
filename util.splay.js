@@ -11,7 +11,7 @@ register: function(cls, id) {
     // find the gap
     const used = _.values(Memory.splay[cls]);
     used.sort((a, b) => a - b);
-    var next = 0;
+    var next = 1;
     _.forEach(used, u => {
         if(next != u) {
             return false;
@@ -21,8 +21,9 @@ register: function(cls, id) {
     Memory.splay[cls][id] = next;
     return next;
 },
-isTurn: function(cls, id) {
+isTurn: function(cls, id, counter=Game.time) {
     if(!Memory.splay) module.exports.register(cls, id);
+    if(!Memory.splay[cls]) module.exports.register(cls, id);
     const reg = Memory.splay[cls];
     var lim = _.max(_.values(reg));
     var offset = reg[id];
@@ -31,6 +32,10 @@ isTurn: function(cls, id) {
         offset = module.exports.register(cls, id);
         if(offset > lim) lim = offset;
     }
-    return (Game.time % lim) == offset;
+    offset--;
+    if(DEBUG) console.log(`${cls}[${id}] :: ${counter} % ${lim} == ${offset}`);
+    return (counter % lim) == offset;
 }
 };
+
+const DEBUG = false;

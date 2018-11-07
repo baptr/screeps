@@ -46,6 +46,7 @@ swampCheck: function(src, dest, roomMatrix=null) {
     // TODO(baptr): can't short-cut the first pass on swamp traversal.
     //if(res.path.length < res.cost) { // Ended up traversing a swamp!
     _.forEach(res.path, (p, i) => {
+        // Pretend there's a creep in the way for the next pass.
         cloneMatrix.set(p.x, p.y, 5);
         var prev = res.path[i-1] || src;
         var t = p.lookFor(LOOK_TERRAIN)[0];
@@ -59,7 +60,6 @@ swampCheck: function(src, dest, roomMatrix=null) {
     })
     //}
     // Do another pass with the first path soft-blocked (by creeps)
-    // Maybe weight ~5-10.
     var cloneRes = PathFinder.search(src, {pos: dest, range: 1}, {roomCallback: () => cloneMatrix, swampCost: 2, maxRooms: 1});
     // TODO(baptr): The second pass can be short-circuited, but then you lose visualization.
     //if(cloneRes.path.length < cloneRes.cost) { // Hit another swamp, or had to wait for a creep to move

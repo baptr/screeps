@@ -52,6 +52,7 @@ module.exports = {
                 if(!source) {
                     console.log("No source near controller in "+creep.room.name);
                     source = creep.pos.findClosestByPath(FIND_SOURCES);
+                    if(!source) return false;
                 }
                 creep.memory.source = source.id;
             }

@@ -1,3 +1,5 @@
+const recycle = require('role2.recycle');
+
 function bodyCost(body) {
     return _.sum(body, p => BODYPART_COST[p.type || p]);
 }
@@ -17,4 +19,7 @@ creepReport: function(roomName) {
         console.log(`${k}: ${v.length}`);
     });
 },
+recycle: function(creep) {
+    return recycle.convert(creep);
+}
 };

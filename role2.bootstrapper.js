@@ -96,7 +96,10 @@ spawnCondition: function(spawn, roomKinds) {
     if(energyCap > 1000 && numBoots >= numSources*2) {
         return false;
     }
-    if(numBoots >= numSources && energyAvail < 0.9*energyCap) {
+    if(numBoots >= numSources*1.5 && energyAvail < 0.9*energyCap) {
+        return false;
+    }
+    if(numBoots >= numSources && energyAvail < 0.5*energyCap) {
         return false;
     }
     if(DEBUG && !spawn.spawning) {
@@ -111,14 +114,18 @@ spawn: function(spawn, extMem={}) {
     var builder = new BodyBuilder(MIN_BODY, energyAvailable);
     
     builder.extend([MOVE], limit=1);
-    builder.extend([WORK, CARRY, MOVE, MOVE]);
-    builder.extend([WORK, MOVE], limit=1);
-    builder.extend([CARRY, MOVE])
-    //extend([CARRY]) // TODO(baptr): worth it?
+    // TOOD(baptr): Once we have dropHarvesters, CARRY heavy makes more sense
+    // than balanced. But these are supposed to be balanced. So better set up
+    // a second type...
+    builder.extend([WORK, CARRY, MOVE, MOVE], limit=2);
+    builder.extend([CARRY, MOVE], limit=3)
+    builder.extend([WORK, MOVE], limit=2);
+    builder.extend([CARRY, MOVE]);
     
     builder.sort();
     
     extMem.role = ROLE;
+    extMem.cost = builder.cost;
     var ret = spawn.spawnCreep(builder.body, ROLE+'-'+spawn.room.name+'-'+Game.time, {
         memory: extMem,
     });
@@ -140,13 +147,20 @@ run: function(creep) {
             });
             if(!src) {
                 src = creep.pos.findClosestByPath(FIND_STRUCTURES, {filter:
-                    s => s.structureType == STRUCTURE_CONTAINER && s.store.energy > 50
+                    s => (s.structureType == STRUCTURE_CONTAINER || 
+                          s.structureType == STRUCTURE_STORAGE)
+                        && s.store.energy > 50
                 });
             }
             if(!src) {
                 // TODO(baptr): Look at all sources to move close while they're
                 // respawning.
                 src = creep.pos.findClosestByPath(FIND_SOURCES_ACTIVE);
+            }
+            if(!src) {
+                src = creep.pos.findClosestByPath(FIND_TOMBSTONES, {filter:
+                    t => t.store.energy > 0
+                });
             }
             if(!src) {
                 trace(creep, `unable to find src. existing energy ${creep.carry.energy}`);
@@ -157,11 +171,12 @@ run: function(creep) {
             }
             trace(creep, `new src: ${src} (${src.id})`);
             creep.memory.src = src.id;
+            creep.memory.stuck = 0;
         }
         var ret;
         if(src instanceof Resource) {
             ret = creep.pickup(src);
-        } else if(src instanceof StructureContainer) {
+        } else if(src instanceof StructureContainer || src instanceof StructureStorage || src instanceof Tombstone) {
             ret = creep.withdraw(src, RESOURCE_ENERGY);
         } else {
             ret = creep.harvest(src);
@@ -173,14 +188,14 @@ run: function(creep) {
             break;
         case ERR_NOT_ENOUGH_RESOURCES:
             delete creep.memory.src;
-            // TOOD(baptr): If there's something nearby, grab from that before deliverying.
-            if(creep.carry.energy > 0) {
-                creep.memory.filling = false;
-            }
             break;
         case ERR_NOT_IN_RANGE:
             if(creep.moveTo(src, {reusePath: 10}) == ERR_NO_PATH) {
-                delete creep.memory.src;
+                creep.memory.stuck++;
+                if(creep.memory.stuck > 5) {
+                    console.log(`${creep.name} unable to reach ${src}, respinning`);
+                    delete creep.memory.src;
+                }
             }
             break;
         case OK:

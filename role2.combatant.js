@@ -104,7 +104,8 @@ spawn: function(spawn, gather, target) {
     spawn.spawnCreep(body, `${ROLE}-${spawn.name}-${Game.time}`, {memory: {
         role: ROLE,
         gather: gather,
-        target: target || '5b6861648610fd40ae7f3f7e',
+        target: target,
+        cost: body.cost,
     }});
 },
 run: run, 
