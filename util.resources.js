@@ -1,8 +1,6 @@
 function resAvail(src, type=RESOURCE_ENERGY) {
     if(!src) return 0;
-    if(src instanceof StructureContainer ||
-      src instanceof StructureStorage ||
-      src instanceof Tombstone) {
+    if(src.store) {
         return src.store[type] || 0;
     }
     if(src instanceof Source) {

@@ -191,12 +191,12 @@ function spawnCreeps(spawn, room) {
     var numRole = r => (kinds[r] || []).length;
     
     // TODO(baptr): Make this more dynamic based on available harvest spots.
-    if(numRole(bootstrapper.ROLE) > 4 && numRole(dropHarvester.ROLE) < 2) {
+    if(numRole(bootstrapper.ROLE) > 3 && numRole(dropHarvester.ROLE) < 2) {
         dropHarvester.spawn(spawn);
     }
     if(spawn.spawning) return;
     
-    if(bootstrapper.spawnCondition(spawn, kinds)) {
+    if(bootstrapper.spawnCondition(room, numRole(bootstrapper.ROLE))) {
         bootstrapper.spawn(spawn);
     }
     if(spawn.spawning) return;

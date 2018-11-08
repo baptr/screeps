@@ -1,52 +1,5 @@
-/* Profiling stats 2018-08-10
-7118		1050.3		0.148		Creep.getActiveBodyparts ** before removing
-Avg: 17.73	Total: 8865.23	Ticks: 500
-
-without the activeBodypart harvest check:
-calls		time		avg		    function
-11097		3382.5		0.305		role.bootstrapper.run
-3463		1109.2		0.320		Creep.moveTo
-4837		877.9		0.181		Creep.upgradeController
-3381		709.6		0.210		Creep.move
-2629		581.8		0.221		Creep.moveByPath
-3147		477.4		0.152		Creep.withdraw
-4026		392.3		0.097		RoomPosition.findClosestByPath
-759	    	211.0		0.278		RoomPosition.findPathTo
-759		    199.4		0.263		Room.findPath
-939		    132.6		0.141		Creep.harvest
-4026		93.8		0.023		Room.find
-956		    59.4		0.062		Creep.transfer
-5793		39.6		0.007		Creep.getActiveBodyparts
-7770		35.6		0.005		RoomPosition.isNearTo
-3313		18.4		0.006		RoomPosition.isEqualTo
-4782		16.7		0.003		RoomPosition.inRangeTo
-117	    	6.0		    0.051		Creep.pickup
-22		    0.1		    0.004		Game.getObjectById
-Avg: 16.74	Total: 8368.81	Ticks: 500
-
-with reusePath=10
-calls		time		avg		function
-10375		3267.6		0.315		role.bootstrapper.run
-4272		1294.7		0.303		Creep.moveTo
-4153		869.3		0.209		Creep.move
-3363		740.5		0.220		Creep.moveByPath
-3750		599.9		0.160		Creep.upgradeController
-4790		523.3		0.109		RoomPosition.findClosestByPath
-2516		308.6		0.123		Creep.withdraw
-808	    	200.9		0.249		RoomPosition.findPathTo
-808	    	189.5		0.235		Room.findPath
-1190		149.3		0.125		Creep.harvest
-4790		115.3		0.024		Room.find
-1404		84.0		0.060		Creep.transfer
-11767		38.4		0.003		RoomPosition.isNearTo
-7116		28.5		0.004		RoomPosition.isEqualTo
-3750		22.4		0.006		Creep.getActiveBodyparts
-240	    	14.0		0.058		Creep.pickup
-3702		13.2		0.004		RoomPosition.inRangeTo
-Avg: 16.01	Total: 8004.74	Ticks: 500
-*/
-
-var util = require('util.creep');
+const util = require('util.creep');
+const resources = require('util.resources');
 const BodyBuilder = require('util.bodybuilder');
 
 const DEBUG = false;
@@ -82,16 +35,13 @@ function trace(creep, msg) {
 // - Spawned until there are 2x (harvester + carrier)
 module.exports = {
 ROLE,
-spawnCondition: function(spawn, roomKinds) {
-    const energyCap = spawn.room.energyCapacityAvailable;
-    const energyAvail = spawn.room.energyAvailable;
-    const numSources = spawn.room.find(FIND_SOURCES).length;
-    const numRole = r => (roomKinds[r] || []).length;
-    const numBoots = numRole(ROLE);
+spawnCondition: function(room, numBoots) {
+    const energyCap = room.energyCapacityAvailable;
+    const energyAvail = room.energyAvailable;
+    const numSources = room.find(FIND_SOURCES).length;
     // Hardcoded 6/4/2 was too much for a single-source room.
     // TODO(baptr): Scale down when first starting and getting assistance from another room.
-    // XXX 3.5 for easier to harvest rooms...
-    if(numBoots >= numSources*5) { return false }
+    if(numBoots >= numSources*3) { return false }
     // TODO(baptr): Tune limit before leaving more room for other types.
     if(energyCap > 1000 && numBoots >= numSources*2) {
         return false;
@@ -101,9 +51,6 @@ spawnCondition: function(spawn, roomKinds) {
     }
     if(numBoots >= numSources && energyAvail < 0.5*energyCap) {
         return false;
-    }
-    if(DEBUG && !spawn.spawning) {
-        console.log(`OK to spawn bootstrapper in ${spawn.room.name}. ${numBoots} vs ${numSources}. ${energyAvail} < ${energyCap}`);
     }
     return true;
 },
@@ -136,47 +83,16 @@ spawn: function(spawn, extMem={}) {
 },
 // - Deliver for spawning, then build extensions only, then upgrade
 run: function(creep) {
+    if(creep.carry.energy == creep.carryCapacity) creep.memory.filling = false;
+    if(creep.carry.energy == 0) creep.memory.filling = true;
     if(creep.memory.filling) {
-        var src = Game.getObjectById(creep.memory.src); // TODO(baptr): Figure out when to unlatch.
-        trace(creep, `filling. held src: ${creep.memory.src} = ${src}`);
-        if(!src) {
-            src = creep.pos.findClosestByPath(FIND_DROPPED_RESOURCES, {
-                // TODO(baptr): Figure out a better way to not wait around for
-                // a dropHarvester's pile to get big enough.
-                filter: r => r.resourceType == RESOURCE_ENERGY && r.amount > 50
-            });
-            if(!src) {
-                src = creep.pos.findClosestByPath(FIND_STRUCTURES, {filter:
-                    s => (s.structureType == STRUCTURE_CONTAINER || 
-                          s.structureType == STRUCTURE_STORAGE)
-                        && s.store.energy > 50
-                });
-            }
-            if(!src) {
-                // TODO(baptr): Look at all sources to move close while they're
-                // respawning.
-                src = creep.pos.findClosestByPath(FIND_SOURCES_ACTIVE);
-            }
-            if(!src) {
-                src = creep.pos.findClosestByPath(FIND_TOMBSTONES, {filter:
-                    t => t.store.energy > 0
-                });
-            }
-            if(!src) {
-                trace(creep, `unable to find src. existing energy ${creep.carry.energy}`);
-                if(creep.carry.energy > 0) {
-                    creep.memory.filling = false;
-                }
-                return false;
-            }
-            trace(creep, `new src: ${src} (${src.id})`);
-            creep.memory.src = src.id;
-            creep.memory.stuck = 0;
-        }
+        var src = findSrc(creep);
+        if(!src) return false;
+        
         var ret;
         if(src instanceof Resource) {
             ret = creep.pickup(src);
-        } else if(src instanceof StructureContainer || src instanceof StructureStorage || src instanceof Tombstone) {
+        } else if(src.store) {
             ret = creep.withdraw(src, RESOURCE_ENERGY);
         } else {
             ret = creep.harvest(src);
@@ -248,7 +164,7 @@ run: function(creep) {
                 return false;
             }
         }
-        
+        trace(creep, `build ${dest} ret: ${ret}`);
         switch(ret) {
         case ERR_NOT_IN_RANGE:
             if(creep.moveTo(dest, {reusePath: 10}) == ERR_NO_PATH) {
@@ -288,6 +204,51 @@ run: function(creep) {
 }
 };
 
+function findSrc(creep) {
+    var src = Game.getObjectById(creep.memory.src); // TODO(baptr): Figure out when to unlatch.
+    trace(creep, `filling. held src: ${creep.memory.src} = ${src}`);
+    if(src && resources.resAvail(src) > 0) {
+        return src;
+    }
+    
+    const done = function(src) {
+        trace(creep, `new src: ${src} (${src.id})`);
+        creep.memory.src = src.id;
+        creep.memory.stuck = 0;
+        return src;
+    }
+    
+    src = creep.pos.findClosestByPath(FIND_DROPPED_RESOURCES, {
+        // TODO(baptr): Figure out a better way to not wait around for
+        // a dropHarvester's pile to get big enough.
+        filter: r => r.resourceType == RESOURCE_ENERGY && r.amount > creep.pos.getRangeTo(r)*10
+    });
+    if(src) return done(src);
+    
+    src = creep.pos.findClosestByPath(FIND_TOMBSTONES, {filter:
+        t => t.store.energy > 0
+    });
+    if(src) return done(src);
+    
+    src = creep.pos.findClosestByPath(FIND_STRUCTURES, {filter:
+        s => (s.structureType == STRUCTURE_CONTAINER || 
+              s.structureType == STRUCTURE_STORAGE)
+            && s.store.energy > 0
+    });
+    if(src) return done(src);
+
+    // TODO(baptr): Look at all sources to move close while they're
+    // respawning.
+    src = creep.pos.findClosestByPath(FIND_SOURCES_ACTIVE);
+    if(src) return done(src);
+
+    trace(creep, `unable to find src. existing energy ${creep.carry.energy}`);
+    if(creep.carry.energy > 0) {
+        creep.memory.filling = false;
+    }
+    return null;
+}
+
 function findDest(creep) {
     // Make sure we don't downgrade.
     var ctrl = creep.room.controller;
@@ -296,7 +257,6 @@ function findDest(creep) {
     }
     
     // Do easy upgrades.
-    // XXX should only happen after there are a bunch of bootstrappers...
     if(ctrl && ctrl.my && ctrl.progress + 200 >= ctrl.progressTotal) {
         return ctrl;
     }
@@ -323,9 +283,12 @@ function findDest(creep) {
     
     // Spawning build sites.
     // Need priority buckets.
-    dest = creep.pos.findClosestByPath(FIND_MY_CONSTRUCTION_SITES, {filter: s => {
+    const sites = creep.room.find(FIND_MY_CONSTRUCTION_SITES, {filter: s => {
         return BUILD_STRUCTS.includes(s.structureType);
     }})
+    dest = creep.pos.findClosestByPath(sites, {filter: s => s.progress > 0});
+    if(dest) { return dest; }
+    dest = creep.pos.findClosestByPath(sites);
     if(dest) { return dest; }
     
     // TODO(baptr): If the controller is already level 8, maybe count the number

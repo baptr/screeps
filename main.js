@@ -1,6 +1,6 @@
 const LOCALS = require('local');
 
-const ROLES = ['harvester', 'remoteHarvester', 'upgrader', 'repairer', 'defender', 'claimer', 'relocater', 'miner', 'linkTransfer', 'bob'];
+const ROLES = ['harvester', 'remoteHarvester', 'defender', 'claimer', 'relocater', 'miner', 'linkTransfer', 'bob'];
 const ROLE2S = ['bootstrapper', 'dropHarvester', 'builder', 'miner', 'combatant', 'dismantler', 'carrier', 'scout', 'hauler', 'storeUpgrader', 'recycle'];
 var role = {};
 _.forEach(ROLES, r => {
@@ -52,8 +52,8 @@ function buildingSay(struct, text) {
 
 const main = {
 runPlanners: function() {
-    _.forEach(LOCALS.ROOMS, r => {
-        plan.room.run(Game.rooms[r]);
+    _.forEach(Game.rooms, r => {
+        plan.room.run(r);
     })
 
     plan.lab.test();
@@ -85,35 +85,12 @@ runCreeps: function() {
         // TODO(baptr): Some day I'm going to want to do something while some
         // role is still spawning, but until then...
         if(creep.spawning) return;
-        // TODO(baptr): Stop doing fallbacks here so there can be fewer special cases.
-        let roleName = creep.memory.role;
-        switch(roleName) {
-        case 'harvester':
-            if(role.harvester.run(creep) === false) {
-                role.repairer.run(creep);
-            }
-            break;
-        case 'builder':
-            if(role.builder.run(creep) === false) {
-                if(role.repairer.run(creep) === false) {
-                    if(role.harvester.run(creep) === false) {
-                        role.upgrader.run(creep);
-                    };
-                };
-            };
-            break;
-        case 'miner':
-            if(role.miner.run(creep) === false) {
-                role.repairer.run(creep);
-            }
-            break;
-        default:
-            var r = role[roleName];
-            if(r) {
-                r.run(creep);
-            } else {
-                console.log(`${creep.name} has unknown role (${roleName})`);
-            }
+        const roleName = creep.memory.role;
+        var r = role[roleName];
+        if(r) {
+            r.run(creep);
+        } else {
+            console.log(`${creep.name} has unknown role (${roleName})`);
         }
     });
 },

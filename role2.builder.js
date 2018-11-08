@@ -1,6 +1,7 @@
 const util = require('util.creep');
 const resUtil = require('util.resources');
 const BodyBuilder = require('util.bodybuilder');
+const bootstrapper = require('role2.bootstrapper');
 
 const MIN_BODY = [WORK, CARRY, MOVE, MOVE];
 const MIN_COST = util.bodyCost(MIN_BODY);
@@ -103,7 +104,7 @@ run: function(creep) {
 
     if(!creep.memory.filling) {
         const target = findTarget(creep);
-        if(!target) return false; // fill?
+        if(!target) return bootstrapper.run(creep); // fill?
         
         var ret;
         var effort;
