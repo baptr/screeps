@@ -28,7 +28,6 @@ const BodyBuilder = require('util.bodybuilder');
 //
 // TODO(baptr): Is it actually better to time it perfectly, or to drain the
 // the source as fast as possible? Slow and steady means more waiting...
-// TODO(baptr): Limit number of harvester/source to the space available.
 // TOOD(baptr): Create a second container if the first one is filling up. (But 
 // remember 5 limit)
 const ROLE = 'dropHarvester';
@@ -58,7 +57,7 @@ spawn: function(spawn) {
         cost: builder.cost,
     }});
     if(ret != OK) {
-        console.log(`Spawning ${name} (${builder.body}) = ${ret}`);
+        console.log(`Spawning ${name} = ${ret}`);
     }
     return true;
 },
@@ -94,7 +93,6 @@ run: function(creep) {
     
     // In range...
     
-    // TODO(baptr): If the container below is full, look for other ones.
     var cont = Game.getObjectById(creep.memory.container);
     if(!cont && !creep.memory.remoteRoom) {
         var conts = src.pos.findInRange(FIND_MY_STRUCTURES, 1, {
@@ -110,6 +108,7 @@ run: function(creep) {
                 // TODO(baptr): better than nothing, though...
                 return false;
             }
+            return true;
         }})
         if(!cont) {
             // may already exist, we'll check next

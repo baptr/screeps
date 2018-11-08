@@ -11,7 +11,8 @@ const DEBUG = false;
   - Avoid blocking the path (especially at the controller)
 */
 
-const MIN_BODY = [WORK, CARRY, MOVE];
+// TODO(baptr): Worth spawning crippled ones early on? Double move is not much more...
+const MIN_BODY = [WORK, CARRY, MOVE, MOVE];
 const MIN_COST = util.bodyCost(MIN_BODY);
 const ROLE = 'bootstrapper';
 
@@ -60,10 +61,10 @@ spawn: function(spawn, extMem={}) {
     
     var builder = new BodyBuilder(MIN_BODY, energyAvailable);
     
-    builder.extend([MOVE], limit=1);
     // TOOD(baptr): Once we have dropHarvesters, CARRY heavy makes more sense
     // than balanced. But these are supposed to be balanced. So better set up
     // a second type...
+    builder.extend([WORK, MOVE], limit=1);
     builder.extend([WORK, CARRY, MOVE, MOVE], limit=2);
     builder.extend([CARRY, MOVE], limit=3)
     builder.extend([WORK, MOVE], limit=2);
@@ -73,11 +74,10 @@ spawn: function(spawn, extMem={}) {
     
     extMem.role = ROLE;
     extMem.cost = builder.cost;
-    var ret = spawn.spawnCreep(builder.body, ROLE+'-'+spawn.room.name+'-'+Game.time, {
-        memory: extMem,
-    });
+    const name = `${ROLE}-${spawn.room.name}-${Game.time}`;
+    var ret = spawn.spawnCreep(builder.body, name, {memory: extMem});
     if(ret != OK) {
-        console.log('Spawn attempt for bootstrapper in',spawn.room.name,': '+builder.body+' : ' + ret);
+        console.log(`Spawn ${name} ret: ${ret}`);
     }
     return ret;
 },
@@ -87,26 +87,36 @@ run: function(creep) {
     if(creep.carry.energy == 0) creep.memory.filling = true;
     if(creep.memory.filling) {
         var src = findSrc(creep);
-        if(!src) return false;
+        if(!src) {
+            if(creep.carry.energy > 50) {
+                creep.memory.filling = false;
+            }
+            return false;
+        }
         
         var ret;
+        var pickupPower;
         if(src instanceof Resource) {
             ret = creep.pickup(src);
+            pickupPower = src.amount;
         } else if(src.store) {
             ret = creep.withdraw(src, RESOURCE_ENERGY);
+            pickupPower = src.store.energy;
         } else {
             ret = creep.harvest(src);
+            pickupPower = creep.getActiveBodyparts(WORK)*HARVEST_POWER;
         }
         trace(creep, `gather ret: ${ret}`);
         switch(ret) {
         case ERR_FULL:
+            console.log(`${creep.name} harvested while full`);
             creep.memory.filling = false;
             break;
         case ERR_NOT_ENOUGH_RESOURCES:
             delete creep.memory.src;
             break;
         case ERR_NOT_IN_RANGE:
-            if(creep.moveTo(src, {reusePath: 10}) == ERR_NO_PATH) {
+            if(creep.moveTo(src, {reusePath: creep.memory.stuck ? 1 : 20}) == ERR_NO_PATH) {
                 creep.memory.stuck++;
                 if(creep.memory.stuck > 5) {
                     console.log(`${creep.name} unable to reach ${src}, respinning`);
@@ -115,19 +125,12 @@ run: function(creep) {
             }
             break;
         case OK:
-            // XXX this is rather expensive...
-            //if(creep.carry.energy + creep.getActiveBodyparts(WORK)*HARVEST_POWER >= creep.carryCapacity) {
-            if(creep.carry.energy == creep.carryCapacity) {
+            if(creep.carry.energy+pickupPower >= creep.carryCapacity) {
+                // Avoid latching too long.
+                delete creep.memory.dest;
                 creep.memory.filling = false;
             }
             break;
-        }
-        if(!creep.memory.filling) {
-            // TODO(baptr): feels a little weird to re-prioritize every fill,
-            // but without it, they'd continue to BUILD even when delivery
-            // was needed.
-            // Is this too often?
-            delete creep.memory.dest;
         }
     } else {
         var dest = Game.getObjectById(creep.memory.dest);
