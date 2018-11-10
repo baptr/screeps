@@ -2,30 +2,35 @@ const claimer = require('role.claimer');
 const builder = require('role2.builder');
 const relocater = require('role.relocater');
 const bootstrapper = require('role2.bootstrapper');
+const scout = require('role2.scout');
 
 const VISUALIZE = true;
 const BOOTSTRAP = true;
 
 function run(claimFlag) {
-    var spawnPos = claimFlag.pos;
-    var roomName = spawnPos.roomName;
+    const spawnPos = claimFlag.pos;
+    const roomName = spawnPos.roomName;
+    const room = Game.rooms[roomName];
+    
     const obs = Game.getObjectById(module.exports.observer);
     if(obs) {
         var ret = obs.observeRoom(roomName);
         if(ret != OK) {
             console.log(`Unable to observe ${roomName} from ${obs}: ${ret}`);
         }
-    } else {
-        // TODO(baptr): Spawn a scout to send there instead
-        // (if it's not already visible...)
-    }
-    const room = Game.rooms[roomName];
-    if(!room) {
-        // TODO(baptr): If this happens multiple times, the observer msut be in
-        // use elsewhere...
-        console.log(`No visibility into claim target ${roomName}, trying next tick...`);
+        if(!room) {
+            // TODO(baptr): If this happens multiple times, the observer msut be in
+            // use elsewhere...
+            console.log(`No visibility into claim target ${roomName}, trying next tick...`);
+            return;
+        }
+    } else if(!room) {
+        if(!scout.exists(roomName)) {
+            return scout.spawn(roomName);
+        }
         return;
     }
+    
     const ctrl = room.controller;
     
     // Pick a src spawn in a high enough (?) level room that's as close as
