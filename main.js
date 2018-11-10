@@ -4,7 +4,7 @@ const ROLES = ['harvester', 'remoteHarvester', 'defender', 'claimer',
                'relocater', 'miner', 'bob'];
 const ROLE2S = ['bootstrapper', 'dropHarvester', 'builder', 'miner',
                 'combatant', 'dismantler', 'carrier', 'scout', 'hauler',
-                'storeUpgrader', 'recycle', 'reserver'];
+                'storeUpgrader', 'recycle', 'reserver', 'healer'];
 var role = {};
 _.forEach(ROLES, r => {
     role[r] = require('role.'+r);
