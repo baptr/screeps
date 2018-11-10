@@ -4,8 +4,13 @@ function bodyCost(body) {
     return _.sum(body, p => BODYPART_COST[p.type || p]);
 }
 
+function renewCost(creep) {
+    return Math.ceil(bodyCost(creep.body)/2.5/creep.body.length);
+}
+
 module.exports = {
 bodyCost,
+renewCost,
 creepReport: function(roomName) {
     const room = Game.rooms[roomName];
     if(!room) {
@@ -22,23 +27,25 @@ creepReport: function(roomName) {
 recycle: function(creep) {
     return recycle.convert(creep);
 },
-respawn: function(creep, start=100, stop=600) {
+renew: function(creep, start=100, stop=600) {
     // It's generally slightly more expensive to renew a creep than spawn it
     // fresh
-    if(creep.ticksToLive < start && !creep.memory.respawn) {
+    if(creep.ticksToLive < start && !creep.memory.renew) {
         var spawns = creep.room.find(FIND_MY_SPAWNS);
         _.forEach(spawns, s => {
             if(s.spawning) return;
             if(creep.pos.inRangeTo(s, 10)) {
-                console.log(`${creep.name} trying to renew`);
-                creep.memory.respawn = s.id;
+                const cost = renewCost(creep);
+                const benefit = Math.floor(600/creep.body.length);
+                console.log(`${creep.name} trying to renew: +${benefit}t/${cost}e`);
+                creep.memory.renew = s.id;
                 return false;
             }
         });
     }
-    if(creep.memory.respawn) {
+    if(creep.memory.renew) {
         if(creep.ticksToLive > stop) {
-            delete creep.memory.respawn;
+            delete creep.memory.renew;
         }
         var spawn = creep.pos.findClosestByPath(FIND_MY_SPAWNS);
         if(spawn) {
@@ -50,16 +57,13 @@ respawn: function(creep, start=100, stop=600) {
             case ERR_NOT_ENOUGH_ENERGY:
                 // TODO no guarantee this won't get stuck in a loop.
                 console.log('Not enough energy to renew :(');
-                delete creep.memory.respawn;
+                delete creep.memory.renew;
                 break;
             case ERR_BUSY:
-                if(creep.ticksToLive > start) delete creep.memory.respawn;
+                if(creep.ticksToLive > start) delete creep.memory.renew;
                 break;
             case OK:
-                const body_size = creep.body.length;
-                const cost = Math.ceil(bodyCost(creep.body)/2.5/body_size)
-                creep.memory.cost += cost;
-                if(Game.time % 20 == 0) console.log(`${creep.name} renewed +${Math.floor(600/body_size)} ticks for ${cost}`);
+                creep.memory.cost += renewCost(creep);
                 break;
             default:
                 console.log(`${creep.name} failed to renew: ${ret}`);

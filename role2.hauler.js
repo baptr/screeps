@@ -17,7 +17,7 @@ spawn: function(spawn) {
     if(body.count(CARRY) < 10) return;
     
     // TODO(baptr): Allow some specialization?
-    var mem = {role: ROLE, res: RESOURCE_ENERGY, cost: body.cost};
+    var mem = {role: ROLE, cost: body.cost};
     const name = `${ROLE}-${room.name}-${Game.time}`;
     const ret = spawn.spawnCreep(body.body, name, {memory: mem});
     if(ret != OK) {
@@ -35,7 +35,6 @@ spawnRemote: function(spawn, remoteRoom) {
     
     var mem = {
         role: ROLE,
-        res: RESOURCE_ENERGY,
         remoteRoom,
         dest: homeRoom.storage.id,
         cost: body.cost,
@@ -50,20 +49,15 @@ spawnRemote: function(spawn, remoteRoom) {
 // TODO(baptr): In controlled rooms, leave some dropHarvested energy near the
 // source for other types.
 run: function(creep) {
-    const resType = creep.memory.res;
-    if(!creep.carry[resType]) {
-        creep.memory.filling = true;
-        // TODO(baptr): Allow for persistent mineral hauling.
-        // This lets us manually empty invader tombs for now, at least.
-        creep.memory.res = pickRes(creep);
-    }
+    if(!_.sum(creep.carry)) creep.memory.filling = true;
+
     if(creep.memory.filling) {
         var src = findSrc(creep);
         // TODO(baptr): If there's already enough energy onboard, or lifetime is
         // low, deliver it anyway.
         if(!src) {
             // If there's no where else to draw from, take it home.
-            if(creep.carry[resType]) creep.memory.filling = false;
+            if(creep.carry.energy) creep.memory.filling = false;
             return false;
         }
         if(!creep.pos.inRangeTo(src, 1)) {
@@ -74,12 +68,20 @@ run: function(creep) {
         if(src instanceof Resource) {
             ret = creep.pickup(src);
         } else {
-            ret = creep.withdraw(src, resType);
+            ret = ERR_NOT_ENOUGH_RESOURCES;
+            _.forEach(src.store, (v, t) => {
+                if(v > 0) {
+                    ret = creep.withdraw(src, t);
+                    return false;
+                }
+            })
         }
         switch(ret) {
         case OK:
             // Either we're full and about to deliver, or it's empty and
             // we'll find a better one next.
+            // TODO(baptr): Not ideal for withdrawing multiple things from a
+            // tombstone.
             delete creep.memory.src;
             return;
         case ERR_FULL:
@@ -103,7 +105,15 @@ run: function(creep) {
         creep.moveTo(dest);
         return
     }
-    let ret = creep.transfer(dest, resType);
+    let ret = ERR_NOT_ENOUGH_RESOURCES;
+    var resType;
+    _.forEach(creep.carry, (v, t) => {
+        if(v > 0) {
+            resType = t;
+            ret = creep.transfer(dest, t);
+            return false;
+        }
+    })
     switch(ret) {
     case OK:
         // Hard to be accurate, so let's just be quick.
@@ -117,6 +127,9 @@ run: function(creep) {
             creep.memory.filling = true;
             return;
         }
+    case ERR_NOT_ENOUGH_RESOURCES:
+        creep.memory.filling = true;
+        break;
     default:
         console.log(`${creep.name} transfer to ${dest} ret: ${ret}`);
     }
@@ -131,29 +144,19 @@ from: ground, dropHarvest containers, tombstones
 to: spawn buildings, towers, upgrade storage
 maybe directly to currently engaged workers???
 */
-// TODO(baptr): High MIN_RES is not appropriate for minerals or rarer resources.
-// TODO(baptr): Seek those out automatically.
-const MIN_RES = 25;
 function findSrc(creep) {
-    const resType = creep.memory.res;
     // TODO(baptr): What about fixed source areas instead of exact objects?
     var src = Game.getObjectById(creep.memory.src);
     if(src) {
         // Make sure there's still something to draw from.
-        // Move towards something even if not...
+        // TODO(baptr): Move towards something even if not...
         var avail = 0;
         if(src instanceof Resource) {
-            if(src.resourceType != resType) {
-                console.log(`${creep.name} headed to wrong resource type ${res}`);
-                delete creep.memory.src;
-            } else {
-                avail = src.amount;
-            }
-        } else if(src instanceof StructureContainer || src instanceof Tombstone) {
-            avail = src.store[resType] || 0;
+            avail = src.amount;
+        } else if(src instanceof Source) {
+            avail = src.energy;
         } else {
-            console.log(`${creep.name} unknown src type ${src}`);
-            delete creep.memory.src;
+            avail = _.sum(src.store) || 0;
         }
         // TODO(baptr): We don't really want to go to a small store if we're far
         // away, but we do want to keep drawing from it if it's almost empty...
@@ -168,9 +171,7 @@ function findSrc(creep) {
             return creep.moveTo(new RoomPosition(25, 25, remoteRoom));
         }
     }
-    var res = creep.pos.findClosestByPath(FIND_DROPPED_RESOURCES, {
-        filter: {resourceType: resType}
-    });
+    var res = creep.pos.findClosestByPath(FIND_DROPPED_RESOURCES);
     // TODO(baptr): If the res is small, or already being tapped, or
     // significantly further than some other source, ignore it.
     if(res && res.amount > creep.pos.getRangeTo(res)*2) {
@@ -178,7 +179,7 @@ function findSrc(creep) {
         return res;
     }
     var tomb = creep.pos.findClosestByPath(FIND_TOMBSTONES, {
-        filter: t => { return t.store[resType] > 0 }
+        filter: t => _.sum(t.store) > 0
     })
     if(tomb) {
         creep.memory.src = tomb.id;
@@ -188,7 +189,7 @@ function findSrc(creep) {
         filter: s => {
             return s.structureType == STRUCTURE_CONTAINER &&
                 // Quick hack to try to leave some behind for other uses.
-                s.store[resType] > 200;
+                s.store.energy > 200;
         }});
     if(cont) {
         creep.memory.src = cont.id;
@@ -213,12 +214,6 @@ function findDest(creep) {
     }
     console.log(`TODO ${creep.name} has no dest!!`);
     return null;
-}
-
-// TODO(baptr): Look for invader tombstones or loose minerals in the room.
-// TODO(baptr): That's going to be expensive. Probably better as part of findSrc
-function pickRes(creep) {
-    return RESOURCE_ENERGY;
 }
 
 function resNear(src, type=RESOURCE_ENERGY) {
