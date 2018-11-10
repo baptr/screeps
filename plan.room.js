@@ -159,7 +159,7 @@ run: function(room) {
     // TODO(baptr): Only do this when room control level changes,
     // or scale out the time further.
     // XXX just splay this instead of the whole room?
-    if(room.controller.level > (room.memory.level || 0) || splay.isTurn('room', room.name, Game.time/100)) {
+    if(room.controller.level > (room.memory.level || 0) || splay.isTurn('room', room.name, Game.time/500)) {
         planBuildings(spawn.pos, [STRUCTURE_EXTENSION, STRUCTURE_TOWER]);
         planRoads(room);
         planMining(room);

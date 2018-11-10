@@ -66,7 +66,7 @@ run: function(creep) {
             if(creep.carry[resType]) creep.memory.filling = false;
             return false;
         }
-        if(!creep.pos.inRangeTo(src.pos, 1)) {
+        if(!creep.pos.inRangeTo(src, 1)) {
             creep.moveTo(src);
             return
         }

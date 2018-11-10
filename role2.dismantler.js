@@ -24,25 +24,19 @@ function planBody() {
 }
 
 function findTarget(target, creep) {
-    var ramps = target.room.find(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_WALL});
-    var target = creep.pos.findClosestByPath(ramps);
-    if(target) {
-        creep.memory.blocked = 0;
-        creep.memory.target = target.id;
-        return target;
+    var wall = creep.pos.findClosestByPath(FIND_STRUCTURES, {filter: {structureType: STRUCTURE_WALL}});
+    if(wall) {
+        return wall;
     } 
     
     var friend = creep.pos.findClosestByPath(FIND_MY_CREEPS, {filter: c => c.hits < c.hitsMax});
     if(friend) {
-        //console.log(creep.name, "trying to heal", friend.name);
-        creep.memory.target = friend.id;
         return friend;
     }
     
-    var wall = creep.pos.findClosestByPath(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART});
-    if(wall) {
-        creep.memory.target = wall.id;
-        return wall;
+    var ramp = creep.pos.findClosestByPath(FIND_STRUCTURES, {filter: {structureType: STRUCTURE_RAMPART}});
+    if(ramp) {
+        return ramp;
     }
 }
 
@@ -73,6 +67,8 @@ run: function(creep) {
             if(Game.time % 20 == 0) console.log("No target remaining for", creep.name);
             return;
         }
+        creep.memory.target = target.id;
+        creep.memory.blocked = 0;
     }
     if(target instanceof Creep) {
         if(target.my && target.hits < target.hitsMax) {

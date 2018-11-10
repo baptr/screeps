@@ -62,8 +62,13 @@ spawn: function(spawn) {
     return true;
 },
 spawnRemote: function(spawn, srcID, srcRoom) {
+    if(!srcID || !srcRoom) {
+        console.log('Invalid args to spawnRemote. Need srcID, srcRoom');
+        return ERR_INVALID_ARGS;
+    }
     var builder = new BodyBuilder([WORK, WORK, MOVE], spawn.room.energyAvailable);
     builder.extend([WORK, WORK, MOVE]);
+    builder.extend([CARRY, CARRY, MOVE], limit=1);
     if(builder.count(WORK) < 10) { // randomly chosen. TODO: math
         console.log("Not worth remote dropHarvesting");
         return false;

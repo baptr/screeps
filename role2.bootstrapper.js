@@ -2,16 +2,12 @@ const util = require('util.creep');
 const resources = require('util.resources');
 const BodyBuilder = require('util.bodybuilder');
 
-const DEBUG = false;
-
 /* TODOs
   - Upgrades at level 8 are limited to 15 energy/tick, so too many bootstrappers
     end up being useless.
-  - Smarter way to keep the controller afloat? (Ticks < 2k works for now...)
   - Avoid blocking the path (especially at the controller)
 */
 
-// TODO(baptr): Worth spawning crippled ones early on? Double move is not much more...
 const MIN_BODY = [WORK, CARRY, MOVE, MOVE];
 const MIN_COST = util.bodyCost(MIN_BODY);
 const ROLE = 'bootstrapper';
@@ -32,8 +28,6 @@ function trace(creep, msg) {
 }
 
 // "Balanced" type (role.bootstrap):
-// - ((WORK, CARRY, MOVE) + MOVE) * N
-// - Spawned until there are 2x (harvester + carrier)
 module.exports = {
 ROLE,
 spawnCondition: function(room, numBoots) {
@@ -60,10 +54,7 @@ spawn: function(spawn, extMem={}) {
     if(energyAvailable < MIN_COST || spawn.spawning) { return false; }
     
     var builder = new BodyBuilder(MIN_BODY, energyAvailable);
-    
-    // TOOD(baptr): Once we have dropHarvesters, CARRY heavy makes more sense
-    // than balanced. But these are supposed to be balanced. So better set up
-    // a second type...
+
     builder.extend([WORK, MOVE], limit=1);
     builder.extend([WORK, CARRY, MOVE, MOVE], limit=2);
     builder.extend([CARRY, MOVE], limit=3)
@@ -85,6 +76,9 @@ spawn: function(spawn, extMem={}) {
 run: function(creep) {
     if(creep.carry.energy == creep.carryCapacity) creep.memory.filling = false;
     if(creep.carry.energy == 0) creep.memory.filling = true;
+    
+    if(util.respawn(creep)) return;
+    
     if(creep.memory.filling) {
         var src = findSrc(creep);
         if(!src) {
@@ -137,7 +131,7 @@ run: function(creep) {
         if(!dest) {
             dest = findDest(creep);
             if(!dest) { 
-                console.log(creep.name, " has nowhere to go :(");
+                if(Game.time % 10 == 0) console.log(creep.name, "has no dest :(");
                 return false;
             }
             creep.memory.dest = dest.id;
