@@ -37,7 +37,7 @@ spawn: function(targetRoom) {
         // TODO(baptr): Pick the closer spawn to the exit?
         spawn = spawns[0];
     });
-    if(!spawn) return;
+    if(!spawn) return ERR_NO_PATH;
     console.log(`Spawning ${name} from ${spawn}`);
     return spawn.spawnCreep([TOUGH, MOVE, TOUGH, MOVE], name, {
         memory: {
@@ -49,7 +49,7 @@ spawn: function(targetRoom) {
 run: function(creep) {
     const target = creep.memory.target;
     if(!target) {
-        console.log("nothing to do, good day!")
+        console.log(`${creep.name} has nothing to do, good day!`);
         creep.suicide();
     }
     creep.moveTo(new RoomPosition(25, 25, target), {visualizePathStyle: {}, reusePath: 100});

@@ -10,7 +10,12 @@ module.exports = {
     },
     run: function(creep) {
         var tgt = creep.memory.reloRoom;
+        if(!tgt) {
+            console.log(`${creep.name} has invalid target room ${tgt}`);
+            return;
+        }
         creep.moveTo(new RoomPosition(25,25,tgt));
+        
         if(creep.room.name == tgt) {
             var newRole = creep.memory.reloNextRole;
             creep.say('Now '+newRole)

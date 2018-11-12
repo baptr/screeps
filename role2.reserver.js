@@ -18,7 +18,7 @@ spawn: function(spawn, targetRoom) {
     var body = new BodyBuilder([CLAIM, MOVE], spawn.room.energyAvailable);
     body.extend([CLAIM, MOVE]);
     
-    if(body.count(CLAIM) == 0) return false;
+    if(body.count(CLAIM) < 2) return ERR_NOT_ENOUGH_ENERGY;
     
     var mem = {
         role: ROLE,

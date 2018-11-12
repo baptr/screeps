@@ -47,21 +47,21 @@ renew: function(creep, start=100, stop=600) {
         if(creep.ticksToLive > stop) {
             delete creep.memory.renew;
         }
-        var spawn = creep.pos.findClosestByPath(FIND_MY_SPAWNS);
+        var spawn = Game.getObjectById(creep.memory.renew);
         if(spawn) {
-            creep.moveTo(spawn);
             let ret = spawn.renewCreep(creep);
             switch(ret) {
             case ERR_NOT_IN_RANGE:
+                creep.moveTo(spawn);
                 break;
             case ERR_NOT_ENOUGH_ENERGY:
                 // TODO no guarantee this won't get stuck in a loop.
                 console.log('Not enough energy to renew :(');
                 delete creep.memory.renew;
-                break;
+                return false;
             case ERR_BUSY:
                 if(creep.ticksToLive > start) delete creep.memory.renew;
-                break;
+                return false;
             case OK:
                 creep.memory.cost += renewCost(creep);
                 break;

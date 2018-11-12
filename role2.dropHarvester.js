@@ -16,10 +16,10 @@ module.exports = {
 spawn: function(spawn) {
     var room = spawn.room;
     const availEnergy = room.energyAvailable;
-    if(availEnergy < MIN_HARVESTER_COST || spawn.spawning) { return false; }
+    if(availEnergy < MIN_HARVESTER_COST || spawn.spawning) { return ERR_BUSY; }
     
     const targetSource = pickSource(room);
-    if(!targetSource) { return false; }
+    if(!targetSource) { return ERR_NOT_FOUND; }
     
     var builder = new BodyBuilder([WORK, WORK, MOVE], availEnergy);
     
@@ -36,19 +36,32 @@ spawn: function(spawn) {
     if(ret != OK) {
         console.log(`Spawning ${name} = ${ret}`);
     }
-    return true;
+    return ret;
 },
-spawnRemote: function(spawn, srcID, srcRoom) {
-    if(!srcID || !srcRoom) {
-        console.log('Invalid args to spawnRemote. Need srcID, srcRoom');
+spawnRemote: function(spawn, srcRoom, srcID=null) {
+    if(!srcRoom) {
+        console.log('Need srcRoom and srcID if possible');
         return ERR_INVALID_ARGS;
     }
+    if(srcRoom && !srcID) {
+        var room = Game.rooms[srcRoom];
+        if(!room) {
+            console.log('Need srcID if srcRoom is not visible');
+            return ERR_INVALID_ARGS;
+        }
+        var src = pickSource(room);
+        if(!src) {
+            console.log(`Unable to find source in ${srcRoom}`);
+            return ERR_NOT_FOUND;
+        }
+        srcID = src.id;
+    }
     var builder = new BodyBuilder([WORK, WORK, MOVE], spawn.room.energyAvailable);
-    builder.extend([WORK, WORK, MOVE]);
     builder.extend([CARRY, CARRY, MOVE], limit=1);
-    if(builder.count(WORK) < 10) { // randomly chosen. TODO: math
+    builder.extend([WORK, WORK, MOVE]);
+    if(builder.count(WORK) < 6) { // randomly chosen. TODO: math
         console.log("Not worth remote dropHarvesting");
-        return false;
+        return ERR_NOT_ENOUGH_ENERGY;
     }
     const name = `${ROLE}-${srcRoom}-${Game.time}`;
     var ret = spawn.spawnCreep(builder.sort(), name, {memory: {
@@ -57,6 +70,10 @@ spawnRemote: function(spawn, srcID, srcRoom) {
         cost: builder.cost,
         remoteRoom: srcRoom,
     }})
+    if(ret != OK) {
+        console.log(`Failed to spawn ${name}: ${ret}`);
+    }
+    return ret;
 },
 run: function(creep) {
     var src = Game.getObjectById(creep.memory.src);
@@ -74,58 +91,7 @@ run: function(creep) {
     }
     
     // In range...
-    
-    var cont = Game.getObjectById(creep.memory.container);
-    if(!cont && !creep.memory.remoteRoom) {
-        var conts = src.pos.findInRange(FIND_MY_STRUCTURES, 1, {
-            filter: {structureType: STRUCTURE_CONTAINER}
-        });
-        // Should avoid one if there's already a drop harvester on it...
-        // But maybe wait/bump any other type?
-        cont = creep.pos.findClosestByPath(conts, {filter: s => {
-            if(s.pos.lookFor(LOOK_CREEPS).length) {
-                return false;
-            }
-            if(_.sum(s.store) == s.storeCapacity) {
-                // TODO(baptr): better than nothing, though...
-                return false;
-            }
-            return true;
-        }})
-        if(!cont) {
-            // may already exist, we'll check next
-            // TODO(baptr): Only 5 containers per room, should prioritize
-            // standing on one
-            var ret = creep.room.createConstructionSite(creep.pos, STRUCTURE_CONTAINER);
-
-            cont = _.filter(creep.pos.lookFor(LOOK_CONSTRUCTION_SITES), s => s.structureType == STRUCTURE_CONTAINER)[0];
-            if(!cont && ret == ERR_RCL_NOT_ENOUGH) {
-                // Don't save it in case we don't make it.
-                // TODO(baptr): Could probably cause flapping...
-                var destCont = creep.pos.findClosestByPath(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_CONTAINER});
-                if(destCont && creep.pos.inRangeTo(destCont, 1)) {
-                    creep.moveTo(destCont);
-                }
-            }
-        }
-        if(cont) {
-            creep.memory.container = cont.id;
-        }
-    }
-    if(cont && _.sum(cont.store) > cont.storeCapacity*0.9) {
-        let swap = creep.pos.findInRange(FIND_STRUCTURES, 1, {filter: s =>
-            s.structureType == STRUCTURE_CONTAINER && s.isNearTo(src) &&
-            _.sum(s.store) < s.storeCapacity * 0.5
-        })[0];
-        if(swap) {
-            console.log(`${creep.name} full, repositioning`);
-            cont = swap;
-            creep.memory.container = swap.id;
-        }
-    }
-    if(cont && !creep.pos.isEqualTo(cont.pos)) {
-        creep.moveTo(cont);
-    }
+    const cont = planContainer(creep, src);
         
     var ret = creep.harvest(src);
     switch(ret) {
@@ -191,6 +157,67 @@ function pickSource(room) {
         return s;
     }
     return null;
+}
+
+function planContainer(creep, src) {
+    var cont = Game.getObjectById(creep.memory.container);
+    if(!cont && creep.memory.remoteRoom) {
+        if(creep.pos.roomName != creep.memory.remoteRoom) {
+            // Wait until we're there to figure it out.
+            return null;
+        }
+        // Only think about containers in a controlled (owned or reserved) room.
+        let ctrl = creep.room.controller;
+        // TODO(baptr): Consider latching 'no' if appropriate.
+        if(!ctrl || !ctrl.reservation || !ctrl.reservation.username == 'baptr') return null;
+    }
+    if(!cont) {
+        var conts = src.pos.findInRange(FIND_STRUCTURES, 1, {
+            filter: {structureType: STRUCTURE_CONTAINER}
+        });
+        // Should avoid one if there's already a drop harvester on it...
+        // But maybe wait/bump any other type?
+        cont = creep.pos.findClosestByPath(conts, {filter: s => {
+            if(s.pos.lookFor(LOOK_CREEPS).length && !s.pos.isEqualTo(creep.pos)) {
+                return false;
+            }
+            if(_.sum(s.store) == s.storeCapacity) {
+                // TODO(baptr): better than nothing, though...
+                return false;
+            }
+            return true;
+        }})
+        if(!cont) {
+            var ret = creep.room.createConstructionSite(creep.pos, STRUCTURE_CONTAINER);
+
+            cont = _.filter(creep.pos.lookFor(LOOK_CONSTRUCTION_SITES), {structureType: STRUCTURE_CONTAINER})[0];
+            if(!cont && ret == ERR_RCL_NOT_ENOUGH) {
+                // Don't save it in case we don't make it.
+                // TODO(baptr): Could probably cause flapping...
+                var destCont = creep.pos.findClosestByPath(FIND_STRUCTURES, {filter: {structureType: STRUCTURE_CONTAINER}});
+                if(destCont && creep.pos.inRangeTo(destCont, 1)) {
+                    creep.moveTo(destCont);
+                }
+            }
+        }
+        if(!cont) return null;
+        creep.memory.container = cont.id;
+    }
+    if(_.sum(cont.store) > cont.storeCapacity*0.9) {
+        let swap = creep.pos.findInRange(FIND_STRUCTURES, 1, {filter: s =>
+            s.structureType == STRUCTURE_CONTAINER && s.pos.isNearTo(src) &&
+            _.sum(s.store) < s.storeCapacity * 0.5
+        })[0];
+        if(swap) {
+            console.log(`${creep.name} full, repositioning`);
+            cont = swap;
+            creep.memory.container = swap.id;
+        }
+    }
+    if(!creep.pos.isEqualTo(cont.pos)) {
+        creep.moveTo(cont);
+    }
+    return cont;
 }
 
 function pickPosition(creep, src) {

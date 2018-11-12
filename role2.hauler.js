@@ -29,7 +29,7 @@ spawnRemote: function(spawn, remoteRoom) {
     const homeRoom = spawn.room;
     if(!homeRoom.storage) return ERR_RCL_NOT_ENOUGH;
     var body = new BodyBuilder([], homeRoom.energyAvailable);
-    body.extend([CARRY, MOVE]);
+    body.extend([CARRY, CARRY, MOVE]);
     
     if(body.count(CARRY) < 10) return ERR_NOT_ENOUGH_ENERGY;
     

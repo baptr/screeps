@@ -8,58 +8,75 @@ const MIN_COST = util.bodyCost(MIN_BODY);
 
 const ROLE = 'builder'
 
+function trace(creep, msg, splay=1) {
+    if(!creep.memory.trace) return;
+    if(Game.time % splay != 0) return;
+    console.log(`${creep.name}: ${msg}`);
+}
+
 function findTarget(creep) {
     var target = Game.getObjectById(creep.memory.buildTarget);
-    if(target && target.progress < target.progressTotal) {
-        return target;
+    if(target) {
+        if(target.progress < target.progressTotal) {
+            trace(creep, `using existing build target ${target}`, splay=10);
+            return target;
+        }
+        if(target.hits < target.hitsMax) {
+            trace(creep, `using existing repair target ${target}`, splay=10);
+            return target;
+        }
     }
     const room = creep.room;
-    var sites = room.find(FIND_CONSTRUCTION_SITES);
+    var sites = room.find(FIND_MY_CONSTRUCTION_SITES);
     // prioritize finishing started construction first
     var startedSites = _.filter(sites, s => s.progress > 0);
     if(startedSites.length) {
+        trace(creep, `checking started construction sites`);
         sites = startedSites;
     }
     target = creep.pos.findClosestByPath(sites);
     if(target) {
+        trace(creep, `using new construction site ${target}`);
         creep.memory.buildTarget = target.id;
         return target
     }
     
-    var structs = room.find(FIND_STRUCTURES);
-    _.sortBy(structs, s => s.hits/s.hitsMax);
+    var structs = _.sortBy(room.find(FIND_STRUCTURES), s => s.hits/s.hitsMax);
     target = structs[0]
     if(target && target.hits < target.hitsMax) {
+        trace(creep, `repairing ${target}`);
         creep.memory.buildTarget = target.id;
         return target;
     }
+    trace(creep, `nothing to build`);
     return null;
 }
-
-// TODO base on actual body expenditure
-const SPAWN_NEED_THRESHOLD = 3000;
 
 module.exports = {
 ROLE,
 spawnCondition: function(room, numExisting) {
-    if(room.energyAvailable < 1000 || room.energyAvailable < room.energyCapacityAvailable*0.5) {
+    if(room.energyAvailable < 500 || room.energyAvailable < room.energyCapacityAvailable*0.5) {
         return false;
     }
     var buildNeed = _.sum(_.map(room.find(FIND_MY_CONSTRUCTION_SITES),
                                 s => s.progressTotal - s.progress));
-    var repairNeed = _.sum(_.map(room.find(FIND_MY_STRUCTURES), s => {
+    var repairNeed = _.sum(_.map(room.find(FIND_STRUCTURES), s => {
         var dmg = s.hitsMax - s.hits;
         if(s.structureType == STRUCTURE_CONTAINER) {
             // Containers rot fast and aren't high priority, so underplay their
             // damage.
-            dmg /= 1000;
+            dmg /= 200;
         }
         return dmg;
     }));
-    const thresh = SPAWN_NEED_THRESHOLD * (1+numExisting);
-    if(buildNeed + repairNeed < thresh) {
-        return false;
-    }
+    var body = module.exports.mkBody(room.energyAvailable);
+    if(!body) return false;
+    
+    // TODO(baptr): Some better threshold to save up?
+    const thresh = util.bodyCost(body) * 2 * (1+numExisting);
+    if(buildNeed + repairNeed < thresh) return false;
+    console.log(`${room.name} builder need: ${buildNeed} + ${repairNeed} < ${thresh}`);
+    
     return true;
 },
 // mkBody is exported for plan.claim
@@ -97,6 +114,7 @@ spawn: function(spawn) {
 },
 run: function(creep) {
     if(!creep.memory.filling && creep.carry.energy == 0) {
+        delete creep.memory.source;
         creep.memory.filling = true;
     } else if(creep.memory.filling && creep.carry.energy == creep.carryCapacity) {
         creep.memory.filling = false;
@@ -104,26 +122,23 @@ run: function(creep) {
 
     if(!creep.memory.filling) {
         const target = findTarget(creep);
-        if(!target) return bootstrapper.run(creep); // fill?
+        if(!target) {
+            trace(creep, 'falling back as bootstrapper');
+            return bootstrapper.run(creep); // fill?
+        }
         
         var ret;
         var effort;
         if(target instanceof ConstructionSite) {
             ret = creep.build(target);
-            const delivery = creep.getActiveBodyparts(WORK)*BUILD_POWER;
-            effort = Math.min(delivery, target.progressTotal-target.progress);
+            const delivery = creep.getActiveBodyparts(WORK);
+            effort = Math.min(delivery, Math.ceil((target.progressTotal-target.progress)/BUILD_POWER));
         } else if(target instanceof Structure) {
             ret = creep.repair(target);
-            const delivery = creep.getActiveBodyparts(WORK)*REPAIR_POWER;
-            effort = Math.min(delivery, target.hitsMax-target.hits);
+            const delivery = creep.getActiveBodyparts(WORK);
+            effort = Math.min(delivery, Math.ceil((target.hitsMax-target.hits)/REPAIR_POWER));
         }
         switch(ret) {
-        case ERR_NOT_ENOUGH_RESOURCES:
-            // TODO(baptr): Clean this up if it can't happen.
-            console.log(`${creep.name} hit NOT_ENOUGH_RESOURCES trying to deliver`);
-            creep.memory.filling = true;
-            creep.moveTo(Game.getObjectById(creep.memory.source));
-            break;
         case ERR_NOT_IN_RANGE:
             creep.moveTo(target);
             break;
@@ -133,7 +148,7 @@ run: function(creep) {
         }
     } else {
         const source = resUtil.findSrc(creep);
-        if(!source) {
+        if(!source) { // TODO(baptr): or too far away...
             if(creep.carry.energy > 0) {
                 creep.memory.filling = false;
             }
@@ -145,6 +160,14 @@ run: function(creep) {
         case OK:
             break;
         case ERR_NOT_IN_RANGE:
+            if(creep.carry.energy > 100) {
+                trace(creep, `checking range to ${source}`);
+                var path = creep.pos.findPathTo(source.pos, {maxOps: 100, maxRooms: 1, range: 1});
+                if(path.length > 20) {
+                    delete creep.memory.source;
+                    creep.memory.filling = false;
+                }
+            }
             if(creep.moveTo(source) == ERR_NO_PATH) {
                 creep.memory.blocked++;
                 if(creep.memory.blocked > 5) {

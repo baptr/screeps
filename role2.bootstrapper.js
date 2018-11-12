@@ -142,6 +142,7 @@ run: function(creep) {
         var ret;
         if(dest instanceof ConstructionSite) {
             ret = creep.build(dest);
+            trace(creep, `build ${dest} ret: ${ret}`);
             effort = creep.getActiveBodyparts(WORK)*BUILD_POWER;
         } else {
             switch(dest.structureType) {
@@ -149,10 +150,12 @@ run: function(creep) {
             case STRUCTURE_EXTENSION:
             case STRUCTURE_TOWER:
                 ret = creep.transfer(dest, RESOURCE_ENERGY);
+                trace(creep, `transfer ${dest} ret: ${ret}`);
                 effort = Math.min(creep.carry.energy, dest.energyCapacity-dest.energy);
                 break;
             case STRUCTURE_CONTROLLER:
                 ret = creep.upgradeController(dest);
+                trace(creep, `upgrade ${dest} ret: ${ret}`);
                 effort = creep.getActiveBodyparts(WORK)*UPGRADE_CONTROLLER_POWER;
                 break;
             default:
@@ -161,7 +164,6 @@ run: function(creep) {
                 return false;
             }
         }
-        trace(creep, `build ${dest} ret: ${ret}`);
         switch(ret) {
         case ERR_NOT_IN_RANGE:
             if(creep.moveTo(dest, {reusePath: 10}) == ERR_NO_PATH) {
@@ -204,7 +206,7 @@ run: function(creep) {
 function findSrc(creep) {
     var src = Game.getObjectById(creep.memory.src); // TODO(baptr): Figure out when to unlatch.
     trace(creep, `filling. held src: ${creep.memory.src} = ${src}`);
-    if(src && resources.resAvail(src) > 0) {
+    if(src && resources.resAvail(src) > 10) {
         return src;
     }
     

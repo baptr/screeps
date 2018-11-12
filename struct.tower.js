@@ -18,10 +18,13 @@ run: function(tower) {
         target = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
         if(target) {
             tower.memory.target = target.id;
-            tower.attack(target);
-            return;
+            return tower.attack(target);
         } else {
             delete tower.memory.target;
+        }
+        let friend = tower.pos.findClosestByRange(FIND_MY_CREEPS, {filter: c => c.hits < c.hitsMax});
+        if(friend) {
+            return tower.heal(friend);
         }
     }
     

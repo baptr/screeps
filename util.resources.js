@@ -14,7 +14,7 @@ function resAvail(src, type=RESOURCE_ENERGY) {
 }
 
 function harvest(creep, src, type=RESOURCE_ENERGY) {
-    if(!src) return false;
+    if(!src) return ERR_INVALID_ARGS;
     if(src.store) {
         return creep.withdraw(src, type);
     }
