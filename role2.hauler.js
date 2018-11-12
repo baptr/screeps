@@ -25,10 +25,13 @@ spawn: function(spawn) {
     }
     return ret;
 },
-spawnRemote: function(spawn, remoteRoom) {
-    const homeRoom = spawn.room;
-    if(!homeRoom.storage) return ERR_RCL_NOT_ENOUGH;
-    var body = new BodyBuilder([], homeRoom.energyAvailable);
+spawnRemote: function(spawn, remoteRoom, destRoom=null) {
+    var storage = spawn.room.storage;
+    if(destRoom) {
+        storage = Game.rooms[destRoom].storage;
+    }
+    if(!storage) return ERR_RCL_NOT_ENOUGH;
+    var body = new BodyBuilder([], spawn.room.energyAvailable);
     body.extend([CARRY, CARRY, MOVE]);
     
     if(body.count(CARRY) < 10) return ERR_NOT_ENOUGH_ENERGY;
@@ -36,10 +39,10 @@ spawnRemote: function(spawn, remoteRoom) {
     var mem = {
         role: ROLE,
         remoteRoom,
-        dest: homeRoom.storage.id,
+        dest: storage.id,
         cost: body.cost,
     }
-    const name = `${ROLE}-${homeRoom.name}-${remoteRoom}-${Game.time}`;
+    const name = `${ROLE}-${storage.room.name}-${remoteRoom}-${Game.time}`;
     const ret = spawn.spawnCreep(body.body, name, {memory: mem});
     if(ret != OK ){
         console.log(`Failed to spawn ${name}: ${ret}`);

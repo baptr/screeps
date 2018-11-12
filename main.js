@@ -34,6 +34,8 @@ const UTILS = ['creep', 'pathing', 'stats', 'splay'];
 var util = {};
 _.forEach(UTILS, u => {util[u] = require('util.'+u)});
 
+const rmtHvst = require('tmp.remoteHarvest');
+
 const profiler = require('screeps-profiler');
 /*
 profiler.enable();
@@ -58,6 +60,10 @@ runPlanners: function() {
     _.forEach(Game.rooms, r => {
         plan.room.run(r);
     })
+    
+    if(Game.time % 500 == 0) {
+        rmtHvst.run('E14N27');
+    }
 
     plan.lab.test();
     plan.claim.test();

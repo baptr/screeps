@@ -8,6 +8,7 @@ const MIN_COST = util.bodyCost(MIN_BODY);
 
 const ROLE = 'builder'
 
+// TODO(baptr): builders should stand off the road while building
 function trace(creep, msg, splay=1) {
     if(!creep.memory.trace) return;
     if(Game.time % splay != 0) return;

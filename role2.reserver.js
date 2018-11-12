@@ -18,7 +18,10 @@ spawn: function(spawn, targetRoom) {
     var body = new BodyBuilder([CLAIM, MOVE], spawn.room.energyAvailable);
     body.extend([CLAIM, MOVE]);
     
-    if(body.count(CLAIM) < 2) return ERR_NOT_ENOUGH_ENERGY;
+    if(body.count(CLAIM) < 2) {
+        console.log(`${spawn} can't afford ${ROLE}: ${body.count(CLAIM)} CLAIM costs ${body.cost}`);
+        return ERR_NOT_ENOUGH_ENERGY;
+    }
     
     var mem = {
         role: ROLE,
