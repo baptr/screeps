@@ -171,7 +171,8 @@ function findSrc(creep) {
         const remoteRoom = creep.memory.remoteRoom;
         if(creep.pos.roomName != remoteRoom) {
             // TODO check visibilty and try picking a source anyway.
-            return creep.moveTo(new RoomPosition(25, 25, remoteRoom));
+            creep.moveTo(new RoomPosition(25, 25, remoteRoom));
+            return null;
         }
     }
     var res = creep.pos.findClosestByPath(FIND_DROPPED_RESOURCES);
@@ -199,6 +200,7 @@ function findSrc(creep) {
         return cont;
     }
     
+    // TODO(baptr): Wait out of the way near (but not blocking) Sources.
     return src;
 }
 

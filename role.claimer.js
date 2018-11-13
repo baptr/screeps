@@ -42,8 +42,21 @@ module.exports = {
             var ctrl = creep.room.controller;
             if(ctrl.my) {
                 return roleUpgrader.run(creep);
-            } else if(creep.claimController(ctrl) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(ctrl);
+            } else {
+                var ret = creep.claimController(ctrl);
+                switch(ret) {
+                case ERR_NOT_IN_RANGE:
+                    creep.moveTo(ctrl);
+                    break;
+                case ERR_GCL_NOT_ENOUGH:
+                    if(Game.time % 20 == 0) console.log(`Too soon to claim ${targetRoom}`);
+                    break;
+                case OK:
+                    console.log(`Welcome to ${targetRoom}!!`);
+                    break;
+                default:
+                    console.log(`Unrecognized claim(${targetRoom}) ret: ${ret}`);
+                }
             }
         }
     }

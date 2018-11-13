@@ -8,6 +8,8 @@ const VISUALIZE = true;
 const BOOTSTRAP = true;
 
 function run(claimFlag) {
+    const curRooms = _.filter(Game.rooms, r => r.controller && r.controller.my);
+    if(Game.gcl.level >= curRooms.length) return;
     const spawnPos = claimFlag.pos;
     const roomName = spawnPos.roomName;
     const room = Game.rooms[roomName];
@@ -43,6 +45,14 @@ function run(claimFlag) {
         if(claimer.spawn(spawn, roomName) == OK) {
             return;
         }
+        var structs = room.find(FIND_HOSTILE_STRUCTURES);
+        if(structs) {
+            const dismantler = require('role2.dismantler');
+            if(!_.find(Memory.creeps, c => c.role == dismantler.ROLE)) {
+                let ret = dismantler.spawn(spawn, structs[0].id);
+                console.log('Sending in a cleanup crew!', ret);
+            }
+        }
     }
     if(BOOTSTRAP && ctrl.my) {
         if(room.find(FIND_MY_SPAWNS).length || room.find(FIND_MY_CONSTRUCTION_SITES).length) {
@@ -76,7 +86,7 @@ function run(claimFlag) {
 // TODO(baptr): Consider Game.map.findRoute...
 // - easier to filter enemy rooms
 function pickSpawn(dstPos) {
-    var goals = _.map(_.filter(Game.spawns, s => s.room.energyCapacityAvailable > 1000), s => {
+    var goals = _.map(_.filter(Game.spawns, s => !s.spawning && s.room.energyCapacityAvailable > 1000), s => {
         // TODO(baptr): Filter for rooms with a lot of energy?
         return {pos: s.pos, range: 1};
     });

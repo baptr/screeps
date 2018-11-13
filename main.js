@@ -4,7 +4,7 @@ const ROLES = ['harvester', 'remoteHarvester', 'defender', 'claimer',
                'relocater', 'miner', 'bob'];
 const ROLE2S = ['bootstrapper', 'dropHarvester', 'builder', 'miner',
                 'combatant', 'dismantler', 'carrier', 'scout', 'hauler',
-                'storeUpgrader', 'recycle', 'reserver', 'healer'];
+                'storeUpgrader', 'recycle', 'reserver', 'healer', 'waiter'];
 var role = {};
 _.forEach(ROLES, r => {
     role[r] = require('role.'+r);
@@ -61,7 +61,7 @@ runPlanners: function() {
         plan.room.run(r);
     })
     
-    if(Game.time % 500 == 0) {
+    if(Game.time % 300 == 0) {
         rmtHvst.run('E14N27');
     }
 

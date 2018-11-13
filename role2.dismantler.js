@@ -1,17 +1,13 @@
+const BodyBuilder = require('util.bodybuilder');
+
 const ROLE = 'dismantler';
 
-function planBody() {
-    // TODO(baptr): Make this work with the part consts.
-    const bodySpec = {
-        work: 15,
-        move: 25,
-        heal: 3,
-        tough: 7,
-    };
-    var body = [];
-    _.forEach(bodySpec, (c, t) => {
-        body.push(...Array(c).fill(t));
-    })
+function planBody(energyAvailable) {
+    var builder = new BodyBuilder([], energyAvailable);
+    builder.extend([WORK, MOVE], limit=15);
+    builder.extend([TOUGH, MOVE], limit=7);
+    builder.extend([HEAL, MOVE], limit=3);
+    
     const bodyPriority = {
         tough: 1,
         move: 2,
@@ -19,8 +15,8 @@ function planBody() {
         carry: 4,
         work: 5,
     };
-    body.sort((a, b) => bodyPriority[a] - bodyPriority[b]);
-    return body;
+    builder.body.sort((a, b) => bodyPriority[a] - bodyPriority[b]);
+    return builder;
 }
 
 function findTarget(target, creep) {
@@ -48,11 +44,12 @@ spawn: function(spawn, target) {
         console.log("No reason to spawn dismantler with no target for now");
         return ERR_INVALID_TARGET; // :-D
     }
-    const body = planBody(spawn);
+    const builder = planBody(spawn.room.energyAvailable);
     
-    return spawn.spawnCreep(body, `${ROLE}-${spawn.name}-${Game.time}`, {memory: {
+    return spawn.spawnCreep(builder.body, `${ROLE}-${spawn.name}-${Game.time}`, {memory: {
         role: ROLE,
         target: target,
+        cost: builder.cost,
     }});
 },
 run: function(creep) {

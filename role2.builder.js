@@ -42,9 +42,17 @@ function findTarget(creep) {
         return target
     }
     
-    var structs = _.sortBy(room.find(FIND_STRUCTURES), s => s.hits/s.hitsMax);
-    target = structs[0]
-    if(target && target.hits < target.hitsMax) {
+    var structs = _.sortBy(room.find(FIND_STRUCTURES, {filter: s => s.hits < s.hitsMax}), s => {
+        switch(s.structureType) {
+        case STRUCTURE_RAMPART:
+        case STRUCTURE_WALL:
+            return s.hits/s.hitsMax/1000;
+        default:
+            return s.hits/s.hitsMax;
+        }
+    });
+    target = structs[0]; // XXX offset by builder index or multiple chase eachother
+    if(target) {
         trace(creep, `repairing ${target}`);
         creep.memory.buildTarget = target.id;
         return target;
@@ -63,12 +71,20 @@ spawnCondition: function(room, numExisting) {
                                 s => s.progressTotal - s.progress));
     var repairNeed = _.sum(_.map(room.find(FIND_STRUCTURES), s => {
         var dmg = s.hitsMax - s.hits;
-        if(s.structureType == STRUCTURE_CONTAINER) {
-            // Containers rot fast and aren't high priority, so underplay their
-            // damage.
-            dmg /= 200;
+        switch(s.structureType) {
+        // Containers rot fast and aren't high priority, so underplay their
+        // damage.
+        case STRUCTURE_CONTAINER:
+            return dmg / 200;
+        // Walls and ramparts are huge, and ramparts rot pretty fast too, so
+        // underplay them significantly.
+        // TODO(baptr): Large wall banks are still going to blow this out.
+        case STRUCTURE_RAMPART:
+        case STRUCTURE_WALL:
+            return 1000 * (1 - s.hits/s.hitsMax);
+        default:
+            return dmg;
         }
-        return dmg;
     }));
     var body = module.exports.mkBody(room.energyAvailable);
     if(!body) return false;

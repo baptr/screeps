@@ -60,7 +60,7 @@ spawnRemote: function(spawn, srcRoom, srcID=null) {
     builder.extend([CARRY, CARRY, MOVE], limit=1);
     builder.extend([WORK, WORK, MOVE]);
     if(builder.count(WORK) < 6) { // randomly chosen. TODO: math
-        console.log("Not worth remote dropHarvesting");
+        console.log(`Not worth remote dropHarvesting for ${builder.count(WORK)} WORK at ${builder.cost} energy`);
         return ERR_NOT_ENOUGH_ENERGY;
     }
     const name = `${ROLE}-${srcRoom}-${Game.time}`;
@@ -220,6 +220,7 @@ function planContainer(creep, src) {
     return cont;
 }
 
+// XXX incomplete + unused
 function pickPosition(creep, src) {
     // TODO(baptr): Any risk of container not being near source?
     var cont = Game.getObjectById(creep.memory.container);
