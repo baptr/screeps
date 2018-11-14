@@ -61,7 +61,7 @@ module.exports = {
         }
         creep.say('Yarrrrr', true);
         if(creep.rangedAttack(enemy) == ERR_NOT_IN_RANGE) {
-            creep.moveTo(enemy);
+            creep.moveTo(enemy, {reusePath: 0});
         }
         
         if(creep.hits < creep.hitsMax) {

@@ -18,14 +18,16 @@ spawn: function(spawn) {
     const availEnergy = room.energyAvailable;
     if(availEnergy < MIN_HARVESTER_COST || spawn.spawning) { return ERR_BUSY; }
     
-    const targetSource = pickSource(room);
-    if(!targetSource) { return ERR_NOT_FOUND; }
-    
     var builder = new BodyBuilder([WORK, WORK, MOVE], availEnergy);
-    
     builder.extend([WORK, WORK, MOVE], limit=(HARVESTER_WORKS - builder.count(WORK))/2);
     builder.extend([CARRY, MOVE], limit=1);
     builder.sort();
+    
+    // TODO(baptr): Base on available locatiosn near the spawn.
+    if(builder.count(WORK) < 4) return ERR_NOT_ENOUGH_RESOURCES;
+    
+    const targetSource = pickSource(room);
+    if(!targetSource) { return ERR_NOT_FOUND; }
     
     const name = `${ROLE}-${room.name}-${Game.time}`
     var ret = spawn.spawnCreep(builder.body, name, {memory: {
@@ -81,8 +83,13 @@ run: function(creep) {
         if(creep.memory.remoteRoom) {
             return creep.moveTo(new RoomPosition(25, 25, creep.memory.remoteRoom));
         }
-        console.log(`${creep.name} has invalid src ${creep.memory.src}`);
-        return false;
+        src = pickSource(creep.room);
+        if(src) {
+            creep.memory.src = src.id;
+        } else{
+            console.log(`${creep.name} has invalid src ${creep.memory.src}`);
+            return false;
+        }
     }
     if(!creep.pos.isNearTo(src)) {
         // XXX need to prevent repositioning for a different container from

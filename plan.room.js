@@ -150,7 +150,11 @@ run: function(room) {
     }
     var spawn = _.find(spawns, s => !s.spawning);
     if(!spawn) { return }
-    var hostiles = room.find(FIND_HOSTILE_CREEPS);
+    var hostiles = room.find(FIND_HOSTILE_CREEPS, {filter: c => {
+        var body = _.groupBy(c.body, 'type');
+        if(body[ATTACK] || body[RANGED_ATTACK] || body[CLAIM]) return true;
+        return false;
+    }});
     if(hostiles.length > 0) {
         if(Game.time % 20 == 0) console.log(`${room} under attack: ${hostiles}`);
         roleDefender.spawn(spawn, {});

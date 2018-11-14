@@ -46,7 +46,7 @@ function findTarget(creep) {
         switch(s.structureType) {
         case STRUCTURE_RAMPART:
         case STRUCTURE_WALL:
-            return s.hits/s.hitsMax/1000;
+            return s.hits/(s.hitsMax/1000);
         default:
             return s.hits/s.hitsMax;
         }
@@ -80,8 +80,9 @@ spawnCondition: function(room, numExisting) {
         // underplay them significantly.
         // TODO(baptr): Large wall banks are still going to blow this out.
         case STRUCTURE_RAMPART:
+            return 500 * (1 - s.hits/s.hitsMax);
         case STRUCTURE_WALL:
-            return 1000 * (1 - s.hits/s.hitsMax);
+            return 100 * (1 - s.hits/s.hitsMax);
         default:
             return dmg;
         }
@@ -92,8 +93,7 @@ spawnCondition: function(room, numExisting) {
     // TODO(baptr): Some better threshold to save up?
     const thresh = util.bodyCost(body) * 2 * (1+numExisting);
     if(buildNeed + repairNeed < thresh) return false;
-    console.log(`${room.name} builder need: ${buildNeed} + ${repairNeed} < ${thresh}`);
-    
+    console.log(`${room.name} builder need: ${buildNeed} + ${repairNeed} > ${thresh}`);
     return true;
 },
 // mkBody is exported for plan.claim

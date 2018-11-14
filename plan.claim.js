@@ -8,8 +8,11 @@ const VISUALIZE = true;
 const BOOTSTRAP = true;
 
 function run(claimFlag) {
+    if(!claimFlag) return ERR_INVALID_ARGS;
+    
     const curRooms = _.filter(Game.rooms, r => r.controller && r.controller.my);
-    if(Game.gcl.level >= curRooms.length) return;
+    const claimable = Game.gcl.level > curRooms.length;
+    
     const spawnPos = claimFlag.pos;
     const roomName = spawnPos.roomName;
     const room = Game.rooms[roomName];
@@ -38,10 +41,11 @@ function run(claimFlag) {
     // Pick a src spawn in a high enough (?) level room that's as close as
     // possible to the target.
     var [spawn, path] = pickSpawn(ctrl.pos);
+    if(!spawn) return path;
     // Is it actually worth the effort to (re)use the path? Or just spawn a few
     // relocater->bootstrappers and be done with it?
     // TODO(baptr): Don't try to spawn another while the first is still travelling.
-    if(BOOTSTRAP && !ctrl.my) {
+    if(claimable && !ctrl.my) {
         if(claimer.spawn(spawn, roomName) == OK) {
             return;
         }
@@ -55,7 +59,7 @@ function run(claimFlag) {
         }
     }
     if(BOOTSTRAP && ctrl.my) {
-        if(room.find(FIND_MY_SPAWNS).length || room.find(FIND_MY_CONSTRUCTION_SITES).length) {
+        if(room.find(FIND_MY_SPAWNS).length || room.find(FIND_MY_CONSTRUCTION_SITES, {filter: {structureType: STRUCTURE_SPAWN}}).length) {
             if(room.energyCapacityAvailable > 700) {
                 console.log("Initial bootstrapping of",roomName,"complete");
                 claimFlag.remove();
@@ -64,8 +68,7 @@ function run(claimFlag) {
             // already planned, just send in some bootstrappers to help out
             // TODO(baptr): This doesn't keep sending bigger ones once the room
             // is able to build its own, which was kind of the point.
-            if(room.find(FIND_MY_CREEPS).length > 7) return;
-            if(spawn.spawning) return;
+            if(room.find(FIND_MY_CREEPS).length > 5) return;
             // TODO(baptr): Avoid a thundering herd so the bodies are better.
             var body = builder.mkBody(spawn.room.energyAvailable);
             if(!body) return;
@@ -92,6 +95,7 @@ function pickSpawn(dstPos) {
     });
     var pathRes = PathFinder.search(dstPos, goals, {maxCost: CREEP_CLAIM_LIFE_TIME - 50, maxOps: 20000});
     var path = pathRes.path;
+    if(!path.length) return [null, ERR_NOT_FOUND];
     path.reverse();
     if(VISUALIZE) visPath(path);
     var spawn = path[0].findClosestByRange(FIND_MY_SPAWNS);

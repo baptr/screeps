@@ -15,7 +15,15 @@ run: function(tower) {
         };
     }
     if(!target && (t || splay.isTurn('tower', tower.id))) {
-        target = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
+        var targets = tower.room.find(FIND_HOSTILE_CREEPS);
+        var highValue = _.filter(targets, c => {
+            var body = _.groupBy(c.body, 'type');
+            if(body[ATTACK] || body[RANGED_ATTACK] || body[CLAIM]) return true;
+            if(c.carry.energy > 100) return true;
+            return false;
+        });
+        if(highValue.length) targets = highValue;
+        target = tower.pos.findClosestByRange(targets);
         if(target) {
             tower.memory.target = target.id;
             return tower.attack(target);

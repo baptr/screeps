@@ -77,7 +77,7 @@ run: function(creep) {
     if(creep.carry.energy == creep.carryCapacity) creep.memory.filling = false;
     if(creep.carry.energy == 0) creep.memory.filling = true;
     
-    if(util.renew(creep)) return;
+    // if(util.renew(creep)) return;
     
     if(creep.memory.filling) {
         var src = findSrc(creep);
@@ -110,7 +110,9 @@ run: function(creep) {
             delete creep.memory.src;
             break;
         case ERR_NOT_IN_RANGE:
-            if(creep.moveTo(src, {reusePath: creep.memory.stuck ? 1 : 20}) == ERR_NO_PATH) {
+            let moveRet = creep.moveTo(src, {reusePath: creep.memory.stuck ? 1 : 20});
+            trace(creep, `attempted to moveTo(src ${src}): ${moveRet}. stuck: ${creep.memory.stuck}`);
+            if(moveRet == ERR_NO_PATH) {
                 creep.memory.stuck++;
                 if(creep.memory.stuck > 5) {
                     console.log(`${creep.name} unable to reach ${src}, respinning`);
@@ -166,7 +168,9 @@ run: function(creep) {
         }
         switch(ret) {
         case ERR_NOT_IN_RANGE:
-            if(creep.moveTo(dest, {reusePath: 10}) == ERR_NO_PATH) {
+            let moveRet = creep.moveTo(dest, {reusePath: creep.memory.stuck ? 1 : 10});
+            trace(creep, `attempted to moveTo(dst ${dest}): ${moveRet}. stuck: ${creep.memory.stuck}`);
+            if(moveRet == ERR_NO_PATH) {
                 creep.memory.stuck++;
                 if(creep.memory.stuck > 5) {
                     console.log(`${creep.name} unable to reach ${dest}, respinning`);

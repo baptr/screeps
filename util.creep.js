@@ -11,6 +11,10 @@ function renewCost(creep) {
 module.exports = {
 bodyCost,
 renewCost,
+hasBody: function(creep, type) {
+    var body = _.groupBy(creep.body, 'type');
+    return body[type];
+},
 creepReport: function(roomName) {
     const room = Game.rooms[roomName];
     if(!room) {
