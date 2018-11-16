@@ -1,6 +1,4 @@
 const splay = require('util.splay');
-// TODO(baptr): Test/assign targets per-room to avoid the ~3+ x fanout every tick.
-// TODO(baptr): Or skew checks when not under attack
 
 module.exports = {
 TYPE: STRUCTURE_TOWER, // XXX use this, or just rely on the module name?

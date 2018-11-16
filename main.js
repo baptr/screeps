@@ -61,9 +61,11 @@ runPlanners: function() {
         plan.room.run(r);
     })
     
+    /*
     if(Game.time % 300 == 0) {
         rmtHvst.run('E14N27');
     }
+    */
 
     plan.lab.test();
     plan.claim.test();
