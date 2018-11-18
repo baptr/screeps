@@ -64,13 +64,36 @@ run: function(creep) {
         creep.memory.delivered += delivery;
         break;
     case ERR_NOT_IN_RANGE:
-        creep.moveTo(ctrl);
+        let mvRet = creep.moveTo(ctrl);
+        console.log(`${creep.name} moving to ${ctrl}: ${mvRet}`);
         return;
     case ERR_NOT_ENOUGH_ENERGY:
         // filling is below
         break;
     default:
         console.log(`${creep.name} unhandled upgrade ret: ${ret}`);
+    }
+    var link = Game.getObjectById(creep.memory.link);
+    if(!link && !creep.memory.hasOwnProperty('link')) {
+        if(creep.room.memory.links) {
+            link = Game.getObjectById(creep.room.memory.links.controller);
+            creep.moveTo(link);
+        } else {
+            link = {};
+        }
+        creep.memory.link = link.id;
+    }
+    if(link) {
+        if(!creep.pos.isNearTo(link)) {
+            creep.moveTo(link);
+        } else if(link.energy > 0) {
+            // TODO(baptr): Empty the link greedily, dump into the storage.
+            if(creep.carry.energy > delivery*2) {
+                return creep.transfer(store, RESOURCE_ENERGY, creep.carry.energy-delivery*2);
+            } else {
+                return creep.withdraw(link, RESOURCE_ENERGY);
+            }
+        }
     }
     // CPU_CLEANUP: Only grab every CARRY*50/WORK ticks.
     ret = creep.withdraw(store, RESOURCE_ENERGY, delivery);

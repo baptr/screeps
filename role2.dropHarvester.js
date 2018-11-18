@@ -110,6 +110,20 @@ run: function(creep) {
         // TODO(baptr): This is probably a little fuzzy if multiple are pulling
         // from it when it runs out, but meh.
         creep.memory.delivered += Math.min(creep.getActiveBodyparts(WORK)*HARVEST_POWER, src.energy);
+        if(creep.carry.energy == creep.carryCapacity && cont && cont.store.energy == cont.storeCapacity) {
+            var link = Game.getObjectById(creep.memory.link);
+            if(!link && !creep.memory.hasOwnProperty('link')) {
+                link = creep.pos.findInRange(FIND_STRUCTURES, 1, {filter: {structureType: STRUCTURE_LINK}})[0] || {};
+                creep.memory.link = link.id;
+            }
+            if(link) {
+                creep.transfer(link, RESOURCE_ENERGY);
+                const ground = creep.pos.lookFor(LOOK_RESOURCES);
+                if(ground) {
+                    console.log(`${creep.name} pickup: ${creep.pickup(ground[0])}`);
+                }
+            }
+        }
         break;
     case ERR_NOT_ENOUGH_RESOURCES:
         if(creep.carry.energy > 0 && cont) {

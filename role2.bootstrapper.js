@@ -156,6 +156,9 @@ run: function(creep) {
                 effort = Math.min(creep.carry.energy, dest.energyCapacity-dest.energy);
                 break;
             case STRUCTURE_CONTROLLER:
+                // TODO(baptr): Consider dropping some energy instead of sitting
+                // around upgrading when storeUpgraders are around.
+                //if(creep.room.storage)
                 ret = creep.upgradeController(dest);
                 trace(creep, `upgrade ${dest} ret: ${ret}`);
                 effort = creep.getActiveBodyparts(WORK)*UPGRADE_CONTROLLER_POWER;
@@ -210,7 +213,7 @@ run: function(creep) {
 function findSrc(creep) {
     var src = Game.getObjectById(creep.memory.src); // TODO(baptr): Figure out when to unlatch.
     trace(creep, `filling. held src: ${creep.memory.src} = ${src}`);
-    if(src && resources.resAvail(src) > 10) {
+    if(src && resources.resAvail(src) > 0) {
         return src;
     }
     
@@ -221,6 +224,12 @@ function findSrc(creep) {
         return src;
     }
     
+    // Res first, since they rot.
+    // Leave tombs to haulers, or deal with them when they become resources.
+    // Prefer containers, even if they're further.
+    // But if there's nothing, grab (~back) from storage.
+    // If it's really early days, try to harvest a source.
+    
     src = creep.pos.findClosestByPath(FIND_DROPPED_RESOURCES, {
         // TODO(baptr): Figure out a better way to not wait around for
         // a dropHarvester's pile to get big enough.
@@ -228,23 +237,22 @@ function findSrc(creep) {
     });
     if(src) return done(src);
     
-    src = creep.pos.findClosestByPath(FIND_TOMBSTONES, {filter:
-        t => t.store.energy > 0
+    
+    src = creep.pos.findClosestByPath(FIND_STRUCTURES, {filter:
+        s => s.structureType == STRUCTURE_CONTAINER && s.store.energy > 0
     });
     if(src) return done(src);
     
-    src = creep.pos.findClosestByPath(FIND_STRUCTURES, {filter:
-        s => (s.structureType == STRUCTURE_CONTAINER || 
-              s.structureType == STRUCTURE_STORAGE)
-            && s.store.energy > 0
-    });
-    if(src) return done(src);
-
+    src = creep.room.storage;
+    if(src && src.store.energy > 0) {
+        return done(src);
+    }
+    
     // TODO(baptr): Look at all sources to move close while they're
     // respawning.
     src = creep.pos.findClosestByPath(FIND_SOURCES_ACTIVE);
     if(src) return done(src);
-
+    
     trace(creep, `unable to find src. existing energy ${creep.carry.energy}`);
     if(creep.carry.energy > 0) {
         creep.memory.filling = false;

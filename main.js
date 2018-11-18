@@ -26,7 +26,7 @@ const PLANNERS = ['claim', 'lab', 'attack', 'room'];
 var plan = {};
 _.forEach(PLANNERS, p => {plan[p] = require('plan.'+p)});
 
-const STRUCTS = ['tower'];
+const STRUCTS = ['tower', 'link'];
 var struct = {};
 _.forEach(STRUCTS, s => {struct[s] = require('struct.'+s)});
 

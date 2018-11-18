@@ -175,19 +175,12 @@ function findSrc(creep) {
             return null;
         }
     }
-    var res = creep.pos.findClosestByPath(FIND_DROPPED_RESOURCES);
-    // TODO(baptr): If the res is small, or already being tapped, or
-    // significantly further than some other source, ignore it.
-    if(res && res.amount > creep.pos.getRangeTo(res)*2) {
+    var ground = creep.room.find(FIND_DROPPED_RESOURCES);
+    ground.push(...creep.room.find(FIND_TOMBSTONES, {filter: t => _.sum(t.store) > 0}));
+    var res = creep.pos.findClosestByPath(ground);
+    if(res) {
         creep.memory.src = res.id;
         return res;
-    }
-    var tomb = creep.pos.findClosestByPath(FIND_TOMBSTONES, {
-        filter: t => _.sum(t.store) > 0
-    })
-    if(tomb) {
-        creep.memory.src = tomb.id;
-        return tomb;
     }
     var cont = creep.pos.findClosestByPath(FIND_STRUCTURES, {
         filter: s => {
