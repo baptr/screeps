@@ -1,8 +1,14 @@
 module.exports = {
 run: function(link) {
-    var dest = Game.getObjectById(link.room.memory.links.controller);
+    var links = link.room.memory.links;
+    if(!links) return; // TODO(baptr): Plan these.
+    var dest = Game.getObjectById(links.controller);
     if(!dest) return;
     if(dest.id == link.id) return;
-    if(link.energy == link.energyCapacity) link.transferEnergy(dest);
+    if(link.energy == link.energyCapacity) {
+        if(dest.energy < 50) {
+            link.transferEnergy(dest);
+        }
+    }
 }
 };

@@ -200,6 +200,12 @@ function spawnCreeps(spawn, room) {
     }
     if(spawn.spawning) return;
     
+    // XXX super hack
+    if(Game.time % 1500 == 0 && spawn.room.name == 'E16N27') {
+        if(remoteHarvester.spawn(spawn, 'E15N27') == OK) return;
+    }
+    if(spawn.spawning) return;
+    
     if(bootstrapper.spawnCondition(room, numRole(bootstrapper.ROLE))) {
         bootstrapper.spawn(spawn);
     }

@@ -88,11 +88,11 @@ run: function(creep) {
             creep.moveTo(link);
         } else if(link.energy > 0) {
             // TODO(baptr): Empty the link greedily, dump into the storage.
+            creep.withdraw(link, RESOURCE_ENERGY);
             if(creep.carry.energy > delivery*2) {
-                return creep.transfer(store, RESOURCE_ENERGY, creep.carry.energy-delivery*2);
-            } else {
-                return creep.withdraw(link, RESOURCE_ENERGY);
+                creep.transfer(store, RESOURCE_ENERGY, creep.carry.energy-delivery*2);
             }
+            return;
         }
     }
     // CPU_CLEANUP: Only grab every CARRY*50/WORK ticks.
