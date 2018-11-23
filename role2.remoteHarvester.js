@@ -1,6 +1,5 @@
 const BodyBuilder = require('util.bodybuilder');
 
-// XXX conflict
 const ROLE = 'remoteHarvester';
 module.exports = {
 ROLE,
@@ -64,6 +63,7 @@ spawn: function(spawn, srcRoom, destRoom) {
         cost: builder.cost,
         srcRoom,
         destRoom,
+        origDest: dest.id,
         dest: dest.id
     };
     const body = builder.sort();
@@ -86,8 +86,6 @@ run: function(creep) {
 
 function fill(creep) {
     var src = Game.getObjectById(creep.memory.src);
-    // XXX also unlatch if it's empty
-    // - maybe only if it won't respawn before we get there (if we're remote)?
     if(!src) {
         var srcName = creep.memory.srcRoom;
         var srcRoom = Game.rooms[srcName];
@@ -126,7 +124,7 @@ function fill(creep) {
         return creep.moveTo(src);
     } else {
         // TODO is it worth the CPU to saving a tick per trip to check
-        // carry+POWER >= capacityand leave the tick we do the final harvest?
+        // carry+POWER >= capacity and leave the tick we do the final harvest?
         return creep.harvest(src);
     }
 }
@@ -151,20 +149,30 @@ function deliver(creep) {
         return creep.moveTo(dest);
     } else {
         // XXX minerals
-        // TODO(baptr): Fallback on heading to storage if link is full.
         let ret = creep.transfer(dest, RESOURCE_ENERGY);
-        if(ret == OK) {
+        switch(ret) {
+        case OK:
             var delivery = creep.carry.energy;
-            // XXX might only partally fill a link
             if(dest instanceof StructureLink) {
                 var space = dest.energyCapacity - dest.energy;
                 if(delivery > space) delivery = space;
             }
             creep.memory.delivered += delivery;
+            if(dest instanceof StructureStorage) {
+                creep.memory.dest = creep.memory.origDest;
+            }
             // XXX bail out if we spin here for a while.
             if(delivery == creep.carry.energy) return fill(creep);
-        } else {
+            break;
+        case ERR_FULL:
+            creep.memory.full++;
+            if(creep.memory.full > 10) {
+                creep.memory.dest = creep.room.storage.id;
+            }
+            break;
+        default:
             console.log(`${creep.name} unable to deliver: ${ret}`);
+            break;
         }
     }
 }

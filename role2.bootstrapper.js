@@ -77,7 +77,7 @@ run: function(creep) {
     if(creep.carry.energy == creep.carryCapacity) creep.memory.filling = false;
     if(creep.carry.energy == 0) creep.memory.filling = true;
     
-    if(util.renew(creep)) return;
+    // if(util.renew(creep)) return;
     
     if(creep.memory.filling) {
         var src = findSrc(creep);

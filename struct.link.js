@@ -6,7 +6,7 @@ run: function(link) {
     if(!dest) return;
     if(dest.id == link.id) return;
     if(link.energy == link.energyCapacity) {
-        if(dest.energy < 50) {
+        if(dest.energy < dest.energyCapacity) {
             link.transferEnergy(dest);
         }
     }

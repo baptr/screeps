@@ -37,6 +37,7 @@ _.forEach(UTILS, u => {util[u] = require('util.'+u)});
 const rmtHvst = require('tmp.remoteHarvest');
 
 const profiler = require('screeps-profiler');
+
 /*
 profiler.enable();
 _.forEach(role, (m, r) => profiler.registerObject(m, 'role.'+r));

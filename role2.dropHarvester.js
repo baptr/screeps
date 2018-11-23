@@ -113,14 +113,22 @@ run: function(creep) {
         if(creep.carry.energy == creep.carryCapacity && cont && cont.store.energy == cont.storeCapacity) {
             var link = Game.getObjectById(creep.memory.link);
             if(!link && !creep.memory.hasOwnProperty('link')) {
-                link = creep.pos.findInRange(FIND_STRUCTURES, 1, {filter: {structureType: STRUCTURE_LINK}})[0] || {};
-                creep.memory.link = link.id;
+                links = creep.pos.findInRange(FIND_STRUCTURES, 1, {filter: {structureType: STRUCTURE_LINK}});
+                if(links.length) {
+                    link = links[0];
+                    creep.memory.link = links[0].id;
+                } else {
+                    creep.memory.link = null;
+                }
+                console.log(`${creep.name} ${JSON.stringify(link)} ${creep.memory.hasOwnProperty('link')} ${creep.memory.link}`);
             }
             if(link) {
                 creep.transfer(link, RESOURCE_ENERGY);
-                const ground = creep.pos.lookFor(LOOK_RESOURCES);
-                if(ground) {
-                    console.log(`${creep.name} pickup: ${creep.pickup(ground[0])}`);
+                if(creep.carry.energy < creep.carryCapacity) {
+                    const ground = creep.pos.lookFor(LOOK_RESOURCES);
+                    if(ground.length) {
+                        console.log(`${creep.name} pickup: ${creep.pickup(ground[0])}`);
+                    }
                 }
             }
         }
