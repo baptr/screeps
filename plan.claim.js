@@ -98,6 +98,7 @@ function pickSpawn(dstPos) {
     if(!path.length) return [null, ERR_NOT_FOUND];
     path.reverse();
     if(VISUALIZE) visPath(path);
+    if(pathRes.incomplete) return;
     var spawn = path[0].findClosestByRange(FIND_MY_SPAWNS);
     if(!spawn) {
         console.log('No spawn near calculated path');

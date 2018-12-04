@@ -1,5 +1,5 @@
 const roleUpgrader = require('role.upgrader');
-const roleBootstrap = require('role2.bootstrapper');
+const roleBootstrapper = require('role2.bootstrapper');
 const BodyBuilder = require('util.bodybuilder');
 const util = require('util.creep');
 

@@ -16,7 +16,8 @@ run: function(tower) {
         var targets = tower.room.find(FIND_HOSTILE_CREEPS);
         var highValue = _.filter(targets, c => {
             var body = _.groupBy(c.body, 'type');
-            if(body[ATTACK] || body[RANGED_ATTACK] || body[CLAIM]) return true;
+            // TODO(baptr): Go for healers first.
+            if(body[ATTACK] || body[RANGED_ATTACK] || body[CLAIM] || body[HEAL]) return true;
             if(c.carry.energy > 100) return true;
             return false;
         });

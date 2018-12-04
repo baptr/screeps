@@ -42,7 +42,7 @@ spawn: function(spawn) {
     
     var mem = {role: ROLE, cost: body.cost};
     const name =  `${ROLE}-${room.name}-${Game.time}`;
-    const ret = spawn.spawnCreep(body.body, name, {memory: mem});
+    const ret = spawn.spawnCreep(body.sort([MOVE, WORK, CARRY]), name, {memory: mem});
     if(ret != OK) {
         console.log(`Failed to spawn ${name}: ${ret}`);
     }
@@ -88,10 +88,15 @@ run: function(creep) {
             creep.moveTo(link);
         } else if(link.energy > 0) {
             // TODO(baptr): Empty the link greedily, dump into the storage.
-            creep.withdraw(link, RESOURCE_ENERGY);
-            if(creep.carry.energy > delivery*2) {
-                creep.transfer(store, RESOURCE_ENERGY, creep.carry.energy-delivery*2);
-            }
+            // Each creep call checks it can be satisfied with the *initial* energy, but actually runs
+            // with the cumulative energy:
+            // transfer -> withdraw -> upgrade
+            // Unless we can write intents directly, this limits us to transfering "everything", withdrawing
+            // the empty space we started with, and upgrading with what we withdrew.
+            const mv = Math.min(creep.carryCapacity/2, link.energy);
+            let transferRet = creep.transfer(store, RESOURCE_ENERGY, mv-delivery);
+            let drawRet = creep.withdraw(link, RESOURCE_ENERGY, mv);
+            // console.log(`${creep.name} had ${creep.carry.energy} energy, ${delivery} delivery. ${mv} mv. upgradeRet: ${ret} drawRet: ${drawRet} transferRet: ${transferRet}`);
             return;
         }
     }

@@ -110,7 +110,9 @@ run: function(creep) {
         // TODO(baptr): This is probably a little fuzzy if multiple are pulling
         // from it when it runs out, but meh.
         creep.memory.delivered += Math.min(creep.getActiveBodyparts(WORK)*HARVEST_POWER, src.energy);
-        if(creep.carry.energy == creep.carryCapacity && cont && cont.store.energy == cont.storeCapacity) {
+        if(!creep.carryCapacity) break;
+        if(!cont || !cont.store) break;
+        if(creep.carry.energy == creep.carryCapacity && cont.store.energy == cont.storeCapacity) {
             var link = Game.getObjectById(creep.memory.link);
             if(!link && !creep.memory.hasOwnProperty('link')) {
                 links = creep.pos.findInRange(FIND_STRUCTURES, 1, {filter: {structureType: STRUCTURE_LINK}});
@@ -120,7 +122,6 @@ run: function(creep) {
                 } else {
                     creep.memory.link = null;
                 }
-                console.log(`${creep.name} ${JSON.stringify(link)} ${creep.memory.hasOwnProperty('link')} ${creep.memory.link}`);
             }
             if(link) {
                 creep.transfer(link, RESOURCE_ENERGY);

@@ -61,7 +61,7 @@ run: function(creep) {
     if(!target) {
         target = findTarget(creep, creep);
         if(!target) {
-            if(Game.time % 20 == 0) console.log("No target remaining for", creep.name);
+            console.log("No target remaining for", creep.name);
             creep.memory.role = 'dropHarvester';
             return;
         }

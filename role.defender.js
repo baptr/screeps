@@ -46,6 +46,7 @@ module.exports = {
             return;
         }
         
+        // TODO(baptr): Prioritize healers.
         var enemy = creep.pos.findClosestByPath(FIND_HOSTILE_CREEPS);
         if(!enemy) {
             spawn = creep.pos.findClosestByPath(FIND_MY_SPAWNS);

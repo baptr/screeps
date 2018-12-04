@@ -27,9 +27,13 @@ class BodyBuilder {
     }
     
     // TODO(baptr): parameterize
-    sort() {
-        // Reasonable first pass for leaving the important stuff at the end.
-        this.body.sort((a,b) => BODYPART_COST[a] - BODYPART_COST[b]);
+    sort(order=BODYPART_COST) {
+        if(order instanceof Array) {
+            let o = {};
+            _.forEach(order, (v, i) => o[v] = i);
+            order = o;
+        }
+        this.body.sort((a,b) => order[a] - order[b]);
         return this.body;
     }
 }

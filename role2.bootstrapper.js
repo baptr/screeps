@@ -272,20 +272,32 @@ function findDest(creep) {
         return ctrl;
     }
     
+    var dest;
+    // If we're under attack, keep towers supplied.
+    // TODO(baptr): Load leveling
+    if(creep.room.find(FIND_HOSTILE_CREEPS).length) {
+        dest = creep.pos.findClosestByPath(FIND_MY_STRUCTURES, {filter: s => {
+            return s.isActive && s.structureType == STRUCTURE_TOWER && s.energy < 750;
+        }});
+        if(dest) return dest;
+    }
+    
     // Supply spawning structures.
-    var dest = creep.pos.findClosestByPath(FIND_MY_STRUCTURES, {filter: s => {
+    dest = creep.pos.findClosestByPath(FIND_MY_STRUCTURES, {filter: s => {
         if(!s.isActive) return false;
         switch(s.structureType) {
         case STRUCTURE_SPAWN:
         case STRUCTURE_EXTENSION:
             return s.energy < s.energyCapacity;
-        case STRUCTURE_TOWER:
-            // TOOD(baptr): factor out the attack/repair const
-            return s.energy < 500;
         }
         return false;
     }});
     if(dest) { return dest; }
+    
+    dest = creep.pos.findClosestByPath(FIND_MY_STRUCTURES, {filter: s => {
+        return s.isActive && s.structureType == STRUCTURE_TOWER && s.energy < 500
+    }})
+    if(dest) return dest;
     
     // Try to keep it high.
     if(ctrl && ctrl.my && ctrl.ticksToDowngrade < CONTROLLER_DOWNGRADE[ctrl.level] * 0.9) {
