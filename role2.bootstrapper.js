@@ -75,7 +75,10 @@ spawn: function(spawn, extMem={}) {
 // - Deliver for spawning, then build extensions only, then upgrade
 run: function(creep) {
     if(creep.carry.energy == creep.carryCapacity) creep.memory.filling = false;
-    if(creep.carry.energy == 0) creep.memory.filling = true;
+    if(creep.carry.energy == 0) {
+        delete creep.memory.src;
+        creep.memory.filling = true;
+    }
     
     // if(util.renew(creep)) return;
     

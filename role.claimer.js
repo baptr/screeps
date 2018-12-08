@@ -6,6 +6,11 @@ const util = require('util.creep');
 const ROLE = 'claimer'
 module.exports = {
     ROLE,
+    needed: function(room) {
+        if(room.controller && room.controller.my) return false;
+        return !_.find(Memory.creeps, c => c.role == ROLE && c.targetRoom == room.name)
+
+    },
     spawn: function(spawn, room) {
         if(spawn.room.findExitTo(room) < 0) {
             console.log(`Unable to spawn claimer for room ${room}, no exit`);

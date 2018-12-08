@@ -184,6 +184,9 @@ function findSrc(creep) {
     }
     var cont = creep.pos.findClosestByPath(FIND_STRUCTURES, {
         filter: s => {
+            if(creep.memory.remoteRoom && s.structureType == STRUCTURE_STORAGE) {
+                return s.store.energy > 200;
+            }
             return s.structureType == STRUCTURE_CONTAINER &&
                 // Quick hack to try to leave some behind for other uses.
                 s.store.energy > 200;

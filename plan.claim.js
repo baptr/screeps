@@ -27,82 +27,103 @@ function run(claimFlag) {
             // TODO(baptr): If this happens multiple times, the observer msut be in
             // use elsewhere...
             console.log(`No visibility into claim target ${roomName}, trying next tick...`);
-            return;
+            return ERR_NOT_FOUND;
         }
     } else if(!room) {
         if(!scout.exists(roomName)) {
             return scout.spawn(roomName);
         }
-        return;
+        return ERR_NO_PATH;
     }
     
     const ctrl = room.controller;
     
-    // Pick a src spawn in a high enough (?) level room that's as close as
-    // possible to the target.
-    var [spawn, path] = pickSpawn(ctrl.pos);
-    if(!spawn) return path;
-    // Is it actually worth the effort to (re)use the path? Or just spawn a few
+    // Is it actually worth some effort to (re)use the path? Or just spawn a few
     // relocater->bootstrappers and be done with it?
-    // TODO(baptr): Don't try to spawn another while the first is still travelling.
     if(claimable && !ctrl.my) {
-        if(claimer.spawn(spawn, roomName) == OK) {
-            return;
+        var [spawn, path] = pickSpawn(ctrl.pos);
+        if(!spawn) return path;
+
+        if(claimer.needed(room)) {
+            let claimerRet = claimer.spawn(spawn, roomName);
+            if(claimerRet == OK) return OK;
+            console.log(`Claim(${roomName}): spawn claimer: ${ret}`);
         }
+        
         var structs = room.find(FIND_HOSTILE_STRUCTURES);
         if(structs) {
             const dismantler = require('role2.dismantler');
             if(!_.find(Memory.creeps, c => c.role == dismantler.ROLE)) {
                 let ret = dismantler.spawn(spawn, structs[0].id);
                 console.log('Sending in a cleanup crew!', ret);
+                return ret;
             }
         }
     }
-    if(BOOTSTRAP && ctrl.my) {
-        if(room.find(FIND_MY_SPAWNS).length || room.find(FIND_MY_CONSTRUCTION_SITES, {filter: {structureType: STRUCTURE_SPAWN}}).length) {
+    if(!BOOTSTRAP) return;
+    if(ctrl.my) {
+        if(room.find(FIND_MY_SPAWNS).length || room.find(FIND_MY_CONSTRUCTION_SITES,
+                {filter: {structureType: STRUCTURE_SPAWN}}).length) {
+            // Already planned, just send in some bootstrappers to help out.
+            
             if(room.energyCapacityAvailable > 700) {
                 console.log("Initial bootstrapping of",roomName,"complete");
                 claimFlag.remove();
-                return;
+                return OK;
             }
-            // already planned, just send in some bootstrappers to help out
+            
             // TODO(baptr): This doesn't keep sending bigger ones once the room
             // is able to build its own, which was kind of the point.
-            if(room.find(FIND_MY_CREEPS).length > 5) return;
-            // TODO(baptr): Avoid a thundering herd so the bodies are better.
+            if(room.find(FIND_MY_CREEPS).length > 5) return OK;
+
+            // Ugly workaround for leaving time to spawn/travel, and help save
+            // up for better bodies.
+            let next = room.memory.nextSpawnAttempt || 0;
+            if(Game.time < next) return OK;
+            room.memory.nextSpawnAttempt = Game.time + 100;
+            
+            var [spawn, path] = pickSpawn(ctrl.pos, CREEP_LIFE_TIME - 600);
+            if(!spawn) return path;
+            
             var body = builder.mkBody(spawn.room.energyAvailable);
             if(!body) return;
-            const name = `relo-builder-${roomName}-${Game.time}`;
+            const name = `relo-bootstrap-${roomName}-${Game.time}`;
             var ret = spawn.spawnCreep(body, name, {
                 memory: relocater.setMem({}, roomName, 'bootstrapper'),
             });
-            if(ret == OK) return;
-            console.log(`Failed to spawn ${name}: ${ret}`);
+            if(ret != OK) console.log(`Failed to spawn ${name}: ${ret}`);
+            return ret;
         } else {
             // TODO figure out a place for it via roomPlanner?
             var ret = room.createConstructionSite(spawnPos.x, spawnPos.y, STRUCTURE_SPAWN, 'Spawn'+roomName);
             console.log(`Placing construction site at ${spawnPos} in ${roomName}: ${ret}`);
+            return ret;
         }
     }
+    return OK;
 }
 
+// Pick a src spawn in a high enough (?) level room that's as close as
+// possible to the target.
 // TODO(baptr): Consider Game.map.findRoute...
 // - easier to filter enemy rooms
-function pickSpawn(dstPos) {
+function pickSpawn(dstPos, maxCost = CREEP_CLAIM_LIFE_TIME - 50) {
     var goals = _.map(_.filter(Game.spawns, s => !s.spawning && s.room.energyCapacityAvailable > 1000), s => {
         // TODO(baptr): Filter for rooms with a lot of energy?
         return {pos: s.pos, range: 1};
     });
-    var pathRes = PathFinder.search(dstPos, goals, {maxCost: CREEP_CLAIM_LIFE_TIME - 50, maxOps: 20000});
+    var pathRes = PathFinder.search(dstPos, goals, {maxCost: maxCost, maxOps: 20000});
     var path = pathRes.path;
-    if(!path.length) return [null, ERR_NOT_FOUND];
+    if(!path.length) return [null, ERR_NO_PATH];
+    
     path.reverse();
     if(VISUALIZE) visPath(path);
-    if(pathRes.incomplete) return;
+    if(pathRes.incomplete) return [null, ERR_NOT_IN_RANGE];
+
     var spawn = path[0].findClosestByRange(FIND_MY_SPAWNS);
     if(!spawn) {
         console.log('No spawn near calculated path');
-        return [];
+        return [null, ERR_NOT_FOUND];
     }
     return [spawn, pathRes];
 }
@@ -132,7 +153,10 @@ pickSpawn: pickSpawn,
 test: function() {
     var target = Game.flags.Claim;
     if(target) {
-        run(target);
+        let ret = run(target);
+        if(ret != OK) {
+            console.log(`Claim(${target.pos}) = ${ret}`);
+        }
     }
 }
 };

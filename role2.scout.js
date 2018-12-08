@@ -26,7 +26,7 @@ spawn: function(targetRoom) {
         if(!r.controller || !r.controller.my) return;
         if(r.energyAvailable < BODY_COST) return;
         
-        let spawns = r.find(FIND_MY_SPAWNS, s => !s.spawning);
+        let spawns = r.find(FIND_MY_SPAWNS, {filter: s => !s.spawning});
         if(!spawns.length) return;
         
         let path = Game.map.findRoute(r, targetRoom);
