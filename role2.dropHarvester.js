@@ -34,6 +34,7 @@ spawn: function(spawn) {
         role: ROLE,
         src: targetSource.id,
         cost: builder.cost,
+        life: {},
     }});
     if(ret != OK) {
         console.log(`Spawning ${name} = ${ret}`);
@@ -78,6 +79,7 @@ spawnRemote: function(spawn, srcRoom, srcID=null) {
     return ret;
 },
 run: function(creep) {
+    util.track(creep, 'alive');
     var src = Game.getObjectById(creep.memory.src);
     if(!src) {
         if(creep.memory.remoteRoom) {
@@ -94,17 +96,21 @@ run: function(creep) {
     if(!creep.pos.isNearTo(src)) {
         // XXX need to prevent repositioning for a different container from
         // flapping against this.
-        return creep.moveTo(src);
+        var ret = creep.moveTo(src);
+        util.track(creep, 'move', ret);
+        return ret;
     }
     
     // In range...
     const cont = planContainer(creep, src);
         
     var ret = creep.harvest(src);
+    util.track(creep, 'harvest', ret);
     switch(ret) {
     case ERR_NOT_IN_RANGE:
         // Shouldn't happen with the range check above..
-        creep.moveTo(src);
+        var ret = creep.moveTo(src);
+        util.track(creep, 'late_move', ret);
         break;
     case OK:
         // TODO(baptr): This is probably a little fuzzy if multiple are pulling

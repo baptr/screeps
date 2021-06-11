@@ -86,6 +86,9 @@ cleanup: function() {
             if(mem.cost) {
                 plaque += ' (cost '+mem.cost+')';
             }
+            if(mem.life) {
+                plaque += ' (life '+JSON.stringify(mem.life)+')';
+            }
             lost.push(plaque)
             delete Memory.creeps[name];
         }

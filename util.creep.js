@@ -31,6 +31,11 @@ creepReport: function(roomName) {
 recycle: function(creep) {
     return recycle.convert(creep);
 },
+track: function(creep, action, ret = OK) {
+  if(creep.memory.life && ret == OK) {
+      creep.memory.life[action] = (creep.memory.life[action]+1) || 1;
+  }
+},
 renew: function(creep, start=100, stop=600) {
     // It's generally slightly more expensive to renew a creep than spawn it
     // fresh

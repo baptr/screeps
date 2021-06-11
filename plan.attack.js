@@ -8,6 +8,7 @@ const TARGET = 'W1N1';
 
 function planApproach(roomName) {
     const obs = Game.getObjectById(OBSERVER);
+    if(!obs) return [];
     obs.observeRoom(roomName);
     const room = Game.rooms[roomName];
     if(!room) return [];

@@ -7,17 +7,18 @@ spawnCondition: function(room, existing=0) {
     const storedEng = _.sum(_.map(conts, s => s.store.energy));
     return storedEng > 1000 && !existing;
 },
-spawn: function(spawn) {
+spawn: function(spawn, dest=false) {
     const room = spawn.room;
-    if(!room.storage) return false;
+    if(!dest && !room.storage) return false;
     var body = new BodyBuilder([], room.energyAvailable);
     body.extend([CARRY, MOVE]);
     
     // Not worth it. Save up
-    if(body.count(CARRY) < 10) return;
+    if(body.count(CARRY) < 5) return false;
     
     // TODO(baptr): Allow some specialization?
     var mem = {role: ROLE, cost: body.cost};
+    if(dest) mem.dest = dest;
     const name = `${ROLE}-${room.name}-${Game.time}`;
     const ret = spawn.spawnCreep(body.body, name, {memory: mem});
     if(ret != OK) {
@@ -182,8 +183,10 @@ function findSrc(creep) {
         creep.memory.src = res.id;
         return res;
     }
+    const dst = creep.memory.dest;
     var cont = creep.pos.findClosestByPath(FIND_STRUCTURES, {
         filter: s => {
+            if(s.id == dst) return false;
             if(creep.memory.remoteRoom && s.structureType == STRUCTURE_STORAGE) {
                 return s.store.energy > 200;
             }

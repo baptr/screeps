@@ -9,9 +9,10 @@ module.exports = {
 spawnCondition: function(room, numExisting=0) {
     return room.storage && numExisting < Math.floor(room.storage.store.energy/4000);
 },
-spawn: function(spawn) {
+spawn: function(spawn, mem={}) {
     const room = spawn.room;
-    if(!room.storage) {
+    var store = Game.getObjectById(mem.src) || room.storage;
+    if(!store) {
         const sites = room.find(FIND_CONSTRUCTION_SITES, {
             filter: {structureType: STRUCTURE_STORAGE}
         });
@@ -28,7 +29,7 @@ spawn: function(spawn) {
     }
     
     // Sanity check that store is in range to ctrl
-    if(!room.storage.pos.inRangeTo(room.controller, CONTROLLER_UPGRADE_RANGE+1)) {
+    if(!store.pos.inRangeTo(room.controller, CONTROLLER_UPGRADE_RANGE+1)) {
         console.log(`${ROLE}: ${room.name} controller too far from storage`);
         return false;
     }
@@ -38,9 +39,10 @@ spawn: function(spawn) {
     body.extend([MOVE], limit=8); // XXX worth it?
     
     // Not worth it at small WORK sizes, save up for a bigger body.
-    if(body.count(WORK) < 5) return false;
+    if(body.count(WORK) < 3) return false;
     
-    var mem = {role: ROLE, cost: body.cost};
+    mem.role = ROLE;
+    mem.cost = body.cost;
     const name =  `${ROLE}-${room.name}-${Game.time}`;
     const ret = spawn.spawnCreep(body.sort([MOVE, WORK, CARRY]), name, {memory: mem});
     if(ret != OK) {
@@ -49,7 +51,10 @@ spawn: function(spawn) {
     return ret;
 },
 run: function(creep) {
-    const store = creep.room.storage;
+    var store = creep.room.storage;
+    if(!store && creep.memory.src) {
+        store = Game.getObjectById(creep.memory.src);
+    }
     const ctrl = creep.room.controller;
     if(!store || !ctrl.my) {
         console.log(`${creep.name} lost storage!!`);
