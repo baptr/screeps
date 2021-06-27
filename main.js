@@ -120,6 +120,11 @@ profiler.registerObject(main, 'main');
 
 module.exports.loop = () => profiler.wrap(() => {
     main.runPlanners();
+
+    if(!Memory.viz) Memory.viz = {};
+    for(const roomName in Memory.viz) {
+      new RoomVisual(roomName).import(Memory.viz[roomName]);
+    }
     
     if(Game.time % 20 == 0) {
         // Periodic cleanup
