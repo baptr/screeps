@@ -108,8 +108,61 @@ function exitMatrix(roomName, openWeight=10) {
       // reflect its maintenance cost?
       costs.set(s.pos.x, s.pos.y, 1);
       break;
+    case STRUCTURE_SPAWN:
+    case STRUCTURE_EXTENSION:
+      costs.set(s.pos.x, s.pos.y, 255);
     }
   });
+
+  if(room) {
+    // Increase the cost along paths between the useful in-room locations, to
+    // avoid walling them off.
+    const pathWeight = Math.min(openWeight * 10, 254); // TODO: Tune
+    // Pairwise among src, controller, minerals, and spawn if present?
+    // Or srcs <-> rest?
+    const srcs = room.find(FIND_SOURCES);
+
+    const minerals = room.find(FIND_MINERALS);
+    const ctrl = room.controller;
+    const spawns = room.find(FIND_MY_SPAWNS); // TODO: All buildings?
+    const dests = spawns.concat(minerals);
+    if(ctrl) dests.push(ctrl);
+
+    const exits = room.find(FIND_EXIT);
+    const pathMatrix = new PathFinder.CostMatrix;
+    for(let j = 0; j < ROOM_DIM; j++) {
+      for(let i = 0; i < ROOM_DIM; i++) {
+        if(terrain[j*ROOM_DIM + i] & TERRAIN_MASK_WALL) {
+          pathMatrix.set(i, j, 255);
+        } else {
+          // Try to avoid going close to the exits, since we'd like to wall those.
+          const pos = new RoomPosition(i, j, room.name);
+          const e = pos.findClosestByRange(exits);
+          const dist = pos.getRangeTo(e);
+          if(dist < 5) {
+            pathMatrix.set(i, j, 6-dist);
+          } else {
+            pathMatrix.set(i, j, 1);
+          }
+        }
+      }
+    }
+    for(const s of room.find(FIND_STRUCTURES)) {
+      if(OBSTACLE_OBJECT_TYPES.includes(s.structureType)) pathMatrix.set(s.x, s.y, 255);
+    }
+
+    for(const s of srcs) {
+      for(const d of dests) {
+        d.range = 1;
+        const ret = PathFinder.search(s.pos, {pos: d.pos, range: 1}, {
+          roomCallback: n => n == room.name ? pathMatrix : false,
+          maxRooms: 1});
+        for(const p of ret.path) {
+          if(costs.get(p.x, p.y) == openWeight) costs.set(p.x, p.y, pathWeight);
+        }
+      }
+    }
+  }
   return costs;
 }
 
@@ -145,30 +198,39 @@ function findNeighbors(prev, matrix) {
   const x = prev.x;
   const y = prev.y;
 
+  const prevMatch = (x, y) => prev.prev && prev.prev.x == x && prev.prev.y == y;
+
   const neighbors = [];
-  if(x > 0) {
+  if(x > 0 && !prevMatch(x-1, y)) {
     const stepCost = matrix.get(x-1, y);
     if(stepCost < 255) {
       neighbors.push({prev, cost: baseCost+stepCost, x: x-1, y});
     }
   }
-  if(x < ROOM_DIM-1) {
+  if(x < ROOM_DIM-1 && !prevMatch(x+1, y)) {
     const stepCost = matrix.get(x+1, y);
     if(stepCost < 255) {
       neighbors.push({prev, cost: baseCost+stepCost, x: x+1, y});
     }
   }
-  if(y > 0) {
+  if(y > 0 && !prevMatch(x, y-1)) {
     const stepCost = matrix.get(x, y-1);
     if(stepCost < 255) {
       neighbors.push({prev, cost: baseCost+stepCost, x, y: y-1});
     }
   }
-  if(y < ROOM_DIM-1) {
+  if(y < ROOM_DIM-1 && !prevMatch(x, y+1)) {
     const stepCost = matrix.get(x, y+1);
     if(stepCost < 255) {
       neighbors.push({prev, cost: baseCost+stepCost, x, y: y+1});
     }
+  }
+  if(neighbors.length > 1 && prev.prev) {
+    // Awkward attempt to promote straight lines by continuing in the same
+    // direction first.
+    const prevPos = new RoomPosition(x, y, 'W1N1');
+    const prevDir = new RoomPosition(prev.prev.x, prev.prev.y, 'W1N1').getDirectionTo(prevPos);
+    neighbors.sort((a, b) => Math.abs(prevPos.getDirectionTo(b.x, b.y) - prevDir) - Math.abs(prevPos.getDirectionTo(a.x, a.y) - prevDir));
   }
   return neighbors;
 }
@@ -204,8 +266,22 @@ function solve(start, goal, matrix) {
   return false;
 }
 
-function planRoom(roomName, openWeight=10) {
+function showMatrix(roomName, matrix) {
+  const viz = new RoomVisual(roomName);
+  for(let x = 0; x < ROOM_DIM; x++) {
+    for(let y = 0; y < ROOM_DIM; y++) {
+      const v = matrix.get(x, y);
+      const color = `rgb(${v},${v},${v})`;
+      viz.text(v, x, y, {color, font: 0.3});
+    }
+  }
+  Memory.viz[roomName] = viz.export();
+}
+
+function planRoom(roomName, openWeight=10, vizMatrix=false, clearViz=true) {
+  new RoomVisual(roomName).clear();
   const matrix = exitMatrix(roomName, openWeight);
+  showMatrix(roomName, matrix);
 
   const terrain = new Room.Terrain(roomName).getRawBuffer();
   const isOpen = (x, y) => !terrain[y*ROOM_DIM + x] & TERRAIN_MASK_WALL;
