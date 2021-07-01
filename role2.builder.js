@@ -83,6 +83,8 @@ spawnCondition: function(room, numExisting) {
         // damage.
         case STRUCTURE_CONTAINER:
             return dmg / 200;
+        case STRUCTURE_ROAD:
+            return dmg / 100;
         // Walls and ramparts are huge, and ramparts rot pretty fast too, so
         // underplay them significantly.
         // TODO(baptr): Large wall banks are still going to blow this out.

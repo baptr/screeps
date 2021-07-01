@@ -366,7 +366,6 @@ module.exports.test = function(roomName, openWeight=10) {
     console.log("unable to solve defenses");
   }
 }
-
 module.exports.viz = obsDist;
 module.exports.rev = 2;
 module.exports.planRoom = planRoom;

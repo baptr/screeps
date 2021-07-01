@@ -19,16 +19,17 @@ spawnCondition: function(room, existing=0) {
     const storedEng = _.sum(_.map(conts, s => s.store.energy));
     return (loose > 1000 && existing < 2) || (storedEng > 1000 && !existing);
 },
-spawn: function(spawn) {
+spawn: function(spawn, dest=false) {
     const room = spawn.room;
-    var dest = findCtrlStore(room);
+    if(!dest) dest = findCtrlStore(room);
     if(!dest) dest = room.storage;
     if(!dest) return false;
+
     var body = new BodyBuilder([], room.energyAvailable);
     body.extend([CARRY, MOVE]);
     
     // Not worth it. Save up
-    if(body.count(CARRY) < 6) return;
+    if(body.count(CARRY) < 5) return false;
     
     // TODO(baptr): Allow some specialization?
     var mem = {role: ROLE, cost: body.cost, dest: dest.id};
@@ -196,11 +197,12 @@ function findSrc(creep) {
         creep.memory.src = res.id;
         return res;
     }
+    const dst = creep.memory.dest;
     var cont = creep.pos.findClosestByPath(FIND_STRUCTURES, {
         filter: s => {
-            if(s.id == creep.memory.dest) return false;
-            if(s.structureType == STRUCTURE_STORAGE) {
-                return s.store.energy > 2000;
+            if(s.id == dst) return false;
+            if(creep.memory.remoteRoom && s.structureType == STRUCTURE_STORAGE) {
+                return s.store.energy > 200;
             }
             return s.structureType == STRUCTURE_CONTAINER &&
                 // Quick hack to try to leave some behind for other uses.

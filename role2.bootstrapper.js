@@ -34,11 +34,14 @@ spawnCondition: function(room, numBoots) {
     const energyCap = room.energyCapacityAvailable;
     const energyAvail = room.energyAvailable;
     const numSources = room.find(FIND_SOURCES).length;
+    const spareEnergy = _.sum(room.find(FIND_STRUCTURES, {filter: {structureType: STRUCTURE_CONTAINER}}), s => s.store[RESOURCE_ENERGY])
+
     // Hardcoded 6/4/2 was too much for a single-source room.
     // TODO(baptr): Scale down when first starting and getting assistance from another room.
-    if(numBoots >= numSources*3) { return false }
+    if(numBoots >= numSources*4) { return false }
+    
     // TODO(baptr): Tune limit before leaving more room for other types.
-    if(energyCap > 1000 && numBoots >= numSources*2) {
+    if(energyCap > 1000 && numBoots >= numSources*2 && spareEnergy < numSources*3000) {
         return false;
     }
     if(numBoots >= numSources*1.5 && energyAvail < 0.9*energyCap) {
@@ -65,6 +68,7 @@ spawn: function(spawn, extMem={}) {
     
     extMem.role = ROLE;
     extMem.cost = builder.cost;
+    extMem.life = {};
     const name = `${ROLE}-${spawn.room.name}-${Game.time}`;
     var ret = spawn.spawnCreep(builder.body, name, {memory: extMem});
     if(ret != OK) {
@@ -74,6 +78,7 @@ spawn: function(spawn, extMem={}) {
 },
 // - Deliver for spawning, then build extensions only, then upgrade
 run: function(creep) {
+    util.track(creep, 'alive');
     if(creep.carry.energy == creep.carryCapacity) creep.memory.filling = false;
     if(creep.carry.energy == 0) {
         delete creep.memory.src;
@@ -95,12 +100,15 @@ run: function(creep) {
         var pickupPower;
         if(src instanceof Resource) {
             ret = creep.pickup(src);
+            util.track(creep, 'pickup', ret);
             pickupPower = src.amount;
         } else if(src.store) {
             ret = creep.withdraw(src, RESOURCE_ENERGY);
+            util.track(creep, 'withdraw', ret);
             pickupPower = src.store.energy;
         } else {
             ret = creep.harvest(src);
+            util.track(creep, 'harvest', ret);
             pickupPower = creep.getActiveBodyparts(WORK)*HARVEST_POWER;
         }
         trace(creep, `gather ret: ${ret}`);
@@ -114,6 +122,7 @@ run: function(creep) {
             break;
         case ERR_NOT_IN_RANGE:
             let moveRet = creep.moveTo(src, {reusePath: creep.memory.stuck ? 1 : 20});
+            util.track(creep, 'move', moveRet);
             trace(creep, `attempted to moveTo(src ${src}): ${moveRet}. stuck: ${creep.memory.stuck}`);
             if(moveRet == ERR_NO_PATH) {
                 creep.memory.stuck++;
@@ -147,6 +156,7 @@ run: function(creep) {
         var ret;
         if(dest instanceof ConstructionSite) {
             ret = creep.build(dest);
+            util.track(creep, 'build', ret);
             trace(creep, `build ${dest} ret: ${ret}`);
             effort = creep.getActiveBodyparts(WORK)*BUILD_POWER;
         } else {
@@ -155,6 +165,7 @@ run: function(creep) {
             case STRUCTURE_EXTENSION:
             case STRUCTURE_TOWER:
                 ret = creep.transfer(dest, RESOURCE_ENERGY);
+                util.track(creep, 'transfer', ret);
                 trace(creep, `transfer ${dest} ret: ${ret}`);
                 effort = Math.min(creep.carry.energy, dest.energyCapacity-dest.energy);
                 break;
@@ -163,6 +174,7 @@ run: function(creep) {
                 // around upgrading when storeUpgraders are around.
                 //if(creep.room.storage)
                 ret = creep.upgradeController(dest);
+                util.track(creep, 'upgrade', ret);
                 trace(creep, `upgrade ${dest} ret: ${ret}`);
                 effort = creep.getActiveBodyparts(WORK)*UPGRADE_CONTROLLER_POWER;
                 break;
@@ -175,6 +187,7 @@ run: function(creep) {
         switch(ret) {
         case ERR_NOT_IN_RANGE:
             let moveRet = creep.moveTo(dest, {reusePath: creep.memory.stuck ? 1 : 10});
+            util.track(creep, 'move', moveRet);
             trace(creep, `attempted to moveTo(dst ${dest}): ${moveRet}. stuck: ${creep.memory.stuck}`);
             if(moveRet == ERR_NO_PATH) {
                 creep.memory.stuck++;

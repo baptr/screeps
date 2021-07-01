@@ -90,6 +90,9 @@ cleanup: function() {
             if(mem.cost) {
                 plaque += ' (cost '+mem.cost+')';
             }
+            if(mem.life) {
+                plaque += ' (life '+JSON.stringify(mem.life)+')';
+            }
             lost.push(plaque)
             delete Memory.creeps[name];
         }
@@ -121,6 +124,11 @@ profiler.registerObject(main, 'main');
 
 module.exports.loop = () => profiler.wrap(() => {
     main.runPlanners();
+
+    if(!Memory.viz) Memory.viz = {};
+    for(const roomName in Memory.viz) {
+      new RoomVisual(roomName).import(Memory.viz[roomName]);
+    }
     
     if(!Memory.viz) Memory.viz = {};
     for(const roomName in Memory.viz) {
@@ -133,6 +141,10 @@ module.exports.loop = () => profiler.wrap(() => {
     
     main.runCreeps();
     main.runStructs();
+
+    if(Game.flags.scout && !role.scout.exists(Game.flags.scout.pos.roomName)) {
+      role.scout.spawn(Game.flags.scout.pos.roomName);
+    }
     
     // Segmented stats are read every 15s.
     Memory.cpu_stats += Game.cpu.getUsed();

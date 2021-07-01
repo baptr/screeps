@@ -1,0 +1,12 @@
+{
+  "devDependencies": {
+    "jest": "^27.0.4",
+    "screeps-jest": "eduter/screeps-jest"
+  },
+  "scripts": {
+    "test": "jest"
+  },
+  "dependencies": {
+    "@types/screeps": "^3.2.2"
+  }
+}

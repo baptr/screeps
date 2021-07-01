@@ -19,9 +19,9 @@ spawnCondition: function(room, numExisting=0) {
     const src = findSrc(room);
     return src && numExisting < Math.floor(src.store.energy/1000) && numExisting < 3;
 },
-spawn: function(spawn) {
+spawn: function(spawn, mem={}) {
     const room = spawn.room;
-    const src = findSrc(room);
+    const src = Game.getObjectById(mem.src) || findSrc(room);
     if(!src) {
         const sites = room.find(FIND_CONSTRUCTION_SITES, {
             filter: {structureType: STRUCTURE_STORAGE}
@@ -43,9 +43,9 @@ spawn: function(spawn) {
     body.extend([MOVE], limit=8); // XXX worth it?
     
     // Not worth it at small WORK sizes, save up for a bigger body.
-    if(body.count(WORK) < 4) return false;
+    if(body.count(WORK) < 3) return false;
     
-    var mem = {role: ROLE, cost: body.cost, src: src.id};
+    const mem = {role: ROLE, cost: body.cost, src: src.id};
     const name =  `${ROLE}-${room.name}-${Game.time}`;
     const ret = spawn.spawnCreep(body.sort([MOVE, WORK, CARRY]), name, {memory: mem});
     if(ret != OK) {
