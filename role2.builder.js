@@ -76,6 +76,8 @@ spawnCondition: function(room, numExisting) {
         // damage.
         case STRUCTURE_CONTAINER:
             return dmg / 200;
+        case STRUCTURE_ROAD:
+            return dmg / 100;
         // Walls and ramparts are huge, and ramparts rot pretty fast too, so
         // underplay them significantly.
         // TODO(baptr): Large wall banks are still going to blow this out.
@@ -83,6 +85,7 @@ spawnCondition: function(room, numExisting) {
             return 500 * (1 - s.hits/s.hitsMax);
         case STRUCTURE_WALL:
             return 100 * (1 - s.hits/s.hitsMax);
+
         default:
             return dmg;
         }
@@ -91,7 +94,7 @@ spawnCondition: function(room, numExisting) {
     if(!body) return false;
     
     // TODO(baptr): Some better threshold to save up?
-    const thresh = util.bodyCost(body) * 2 * (1+numExisting);
+    const thresh = util.bodyCost(body) * 3 * (1+numExisting);
     if(buildNeed + repairNeed < thresh) return false;
     console.log(`${room.name} builder need: ${buildNeed} + ${repairNeed} > ${thresh}`);
     return true;

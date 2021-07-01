@@ -133,6 +133,10 @@ module.exports.loop = () => profiler.wrap(() => {
     
     main.runCreeps();
     main.runStructs();
+
+    if(Game.flags.scout && !role.scout.exists(Game.flags.scout.pos.roomName)) {
+      role.scout.spawn(Game.flags.scout.pos.roomName);
+    }
     
     // Segmented stats are read every 15s.
     Memory.cpu_stats += Game.cpu.getUsed();

@@ -281,7 +281,7 @@ function showMatrix(roomName, matrix) {
 function planRoom(roomName, openWeight=10, vizMatrix=false, clearViz=true) {
   new RoomVisual(roomName).clear();
   const matrix = exitMatrix(roomName, openWeight);
-  showMatrix(roomName, matrix);
+  if(vizMatrix) showMatrix(roomName, matrix);
 
   const terrain = new Room.Terrain(roomName).getRawBuffer();
   const isOpen = (x, y) => !terrain[y*ROOM_DIM + x] & TERRAIN_MASK_WALL;
