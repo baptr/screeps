@@ -1,23 +1,37 @@
 const BodyBuilder = require('util.bodybuilder');
 
+function findCtrlStore(room) {
+    const opts = room.controller.pos.findInRange(FIND_STRUCTURES, 4, {
+        filter: s => {return s.store && s.store.getFreeCapacity(RESOURCE_ENERGY) > 0}
+    });
+    if(!opts.length) return null;
+    const pref =  _.sortBy(opts, [s => s.store.energy])
+    return pref[0];
+}
+
 const ROLE = 'hauler';
 module.exports = {
 spawnCondition: function(room, existing=0) {
+    const loose = _.sum(_.map(room.find(FIND_DROPPED_RESOURCES, {
+        filter: {resourceType: RESOURCE_ENERGY}
+    }), r => r.amount));
     const conts = room.find(FIND_STRUCTURES, {filter: {structureType: STRUCTURE_CONTAINER}});
     const storedEng = _.sum(_.map(conts, s => s.store.energy));
-    return storedEng > 1000 && !existing;
+    return (loose > 1000 && existing < 2) || (storedEng > 1000 && !existing);
 },
 spawn: function(spawn) {
     const room = spawn.room;
-    if(!room.storage) return false;
+    var dest = findCtrlStore(room);
+    if(!dest) dest = room.storage;
+    if(!dest) return false;
     var body = new BodyBuilder([], room.energyAvailable);
     body.extend([CARRY, MOVE]);
     
     // Not worth it. Save up
-    if(body.count(CARRY) < 10) return;
+    if(body.count(CARRY) < 6) return;
     
     // TODO(baptr): Allow some specialization?
-    var mem = {role: ROLE, cost: body.cost};
+    var mem = {role: ROLE, cost: body.cost, dest: dest.id};
     const name = `${ROLE}-${room.name}-${Game.time}`;
     const ret = spawn.spawnCreep(body.body, name, {memory: mem});
     if(ret != OK) {
@@ -32,7 +46,7 @@ spawnRemote: function(spawn, remoteRoom, destRoom=null) {
     }
     if(!storage) return ERR_RCL_NOT_ENOUGH;
     var body = new BodyBuilder([], spawn.room.energyAvailable);
-    body.extend([CARRY, CARRY, MOVE]);
+    body.extend([CARRY, MOVE]);
     
     if(body.count(CARRY) < 10) return ERR_NOT_ENOUGH_ENERGY;
     
@@ -184,8 +198,9 @@ function findSrc(creep) {
     }
     var cont = creep.pos.findClosestByPath(FIND_STRUCTURES, {
         filter: s => {
-            if(creep.memory.remoteRoom && s.structureType == STRUCTURE_STORAGE) {
-                return s.store.energy > 200;
+            if(s.id == creep.memory.dest) return false;
+            if(s.structureType == STRUCTURE_STORAGE) {
+                return s.store.energy > 2000;
             }
             return s.structureType == STRUCTURE_CONTAINER &&
                 // Quick hack to try to leave some behind for other uses.
@@ -200,6 +215,15 @@ function findSrc(creep) {
     return src;
 }
 
+function findControllerContainer(room) {
+    const conts = room.controller.pos.findInRange(FIND_STRUCTURES, 4, {
+        filter: {structureType: STRUCTURE_CONTAINER}
+    });
+    if(conts.length) {
+        return conts[0];
+    }
+    return null;
+}
 function findDest(creep) {
     var dest = Game.getObjectById(creep.memory.dest);
     if(dest) {

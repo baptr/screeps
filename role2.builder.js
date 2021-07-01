@@ -28,6 +28,13 @@ function findTarget(creep) {
         }
     }
     const room = creep.room;
+    const damagedStructs = room.find(FIND_STRUCTURES, {filter: s => s.hits < s.hitsMax});
+    const fresh = creep.pos.findClosestByRange(damagedStructs.filter(s => s.hits == 1));
+    if(fresh && creep.pos.getRangeTo(fresh) <= 3) {
+        trace(creep, `repairing new wall/rampart ${fresh}`);
+        creep.memory.buildTarget = fresh.id;
+        return fresh;
+    }
     var sites = room.find(FIND_MY_CONSTRUCTION_SITES);
     // prioritize finishing started construction first
     var startedSites = _.filter(sites, s => s.progress > 0);
@@ -42,7 +49,7 @@ function findTarget(creep) {
         return target
     }
     
-    var structs = _.sortBy(room.find(FIND_STRUCTURES, {filter: s => s.hits < s.hitsMax}), s => {
+    var structs = _.sortBy(damagedStructs, s => {
         switch(s.structureType) {
         case STRUCTURE_RAMPART:
         case STRUCTURE_WALL:
@@ -80,9 +87,9 @@ spawnCondition: function(room, numExisting) {
         // underplay them significantly.
         // TODO(baptr): Large wall banks are still going to blow this out.
         case STRUCTURE_RAMPART:
-            return 500 * (1 - s.hits/s.hitsMax);
+            return 50 * (1 - s.hits/s.hitsMax);
         case STRUCTURE_WALL:
-            return 100 * (1 - s.hits/s.hitsMax);
+            return 10 * (1 - s.hits/s.hitsMax);
         default:
             return dmg;
         }
@@ -92,7 +99,7 @@ spawnCondition: function(room, numExisting) {
     
     // TODO(baptr): Some better threshold to save up?
     const thresh = util.bodyCost(body) * 2 * (1+numExisting);
-    if(buildNeed + repairNeed < thresh) return false;
+    if(buildNeed/4 + repairNeed < thresh) return false;
     console.log(`${room.name} builder need: ${buildNeed} + ${repairNeed} > ${thresh}`);
     return true;
 },
@@ -100,12 +107,14 @@ spawnCondition: function(room, numExisting) {
 mkBody: function(energyAvailable) {
     var builder = new BodyBuilder(MIN_BODY, energyAvailable);
     
-    builder.extend([WORK, MOVE], limit=4); // up to 1/2 of a carry per tick, costing 750 eng
-    builder.extend([CARRY, MOVE], limit=9); // up to 10 CARRY (500 eng cap) @ 1750 total eng cost
+    builder.extend([WORK, MOVE, CARRY, MOVE], limit=3);
+    builder.extend([CARRY, MOVE], limit=2);
+    builder.extend([WORK, MOVE], limit=2);
     
-    builder.extend([WORK, MOVE], limit=5); // build a full 50 eng/tick
+    builder.extend([CARRY, MOVE], limit=5);
+    builder.extend([WORK, MOVE], limit=5);
+    
     builder.extend([CARRY, MOVE]);
-    // max at 10 work, 15 carry, 25 move. 750 capacity, 15 tick build
     
     if(builder.count(WORK) < 2) return null;
     
@@ -135,6 +144,9 @@ run: function(creep) {
         creep.memory.filling = true;
     } else if(creep.memory.filling && creep.carry.energy == creep.carryCapacity) {
         creep.memory.filling = false;
+        if(Game.getObjectById(creep.memory.buildTarget) instanceof Structure) {
+            delete creep.memory.buildTarget;
+        }
     }
 
     if(!creep.memory.filling) {

@@ -48,7 +48,7 @@ run: function(tower) {
 }
 };
 
-Object.defineProperty(StructureTower.prototype, 'memory', {
+if(!StructureTower.prototype.hasOwnProperty('memory')) Object.defineProperty(StructureTower.prototype, 'memory', {
    get: function() {
        if(this.id && !this.my) return undefined;
        if(!Memory.structures) Memory.structures = {}; // XXX struct or tower?

@@ -135,12 +135,23 @@ run: function(creep) {
         }
         break;
     case ERR_NOT_ENOUGH_RESOURCES:
-        if(creep.carry.energy > 0 && cont) {
+        if(creep.carryCapacity && cont) {
             if(cont instanceof ConstructionSite) {
                 creep.build(cont);
             } else {
-                creep.repair(cont);
+                if(cont.hits < cont.hitsMax) {
+                    creep.repair(cont);
+                } else {
+                    const structs = _.filter(creep.pos.lookFor(LOOK_STRUCTURES), {
+                        structureType: STRUCTURE_RAMPART
+                    });
+                    if(structs.length) {
+                        creep.repair(structs[0]);
+                    }
+                }
             }
+            const res = creep.pos.lookFor(LOOK_RESOURCES, {filter: {resourceType: RESOURCE_ENERGY}});
+            if(res.length) creep.pickup(res[0]);
         }
         break;
     default:

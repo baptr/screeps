@@ -181,6 +181,7 @@ run: function(creep) {
                 if(creep.memory.stuck > 5) {
                     console.log(`${creep.name} unable to reach ${dest}, respinning`);
                     delete creep.memory.dest;
+                    findSrc(creep);
                 }
             }
             break;
@@ -240,10 +241,28 @@ function findSrc(creep) {
     });
     if(src) return done(src);
     
+    src = creep.pos.findClosestByPath(FIND_RUINS, {filter: s => s.store.energy > 0});
+    if(src) return done(src);
     
+    // XXX only pick up from a container near the controller if you're going to upgrade
     src = creep.pos.findClosestByPath(FIND_STRUCTURES, {filter:
-        s => s.structureType == STRUCTURE_CONTAINER && s.store.energy > 0
+        s => {
+            if(s.structureType != STRUCTURE_CONTAINER) return false;
+            if(!s.store.energy) return false;
+            const ctrl = creep.room.controller;
+            if(ctrl && ctrl.my && creep.memory.dest != ctrl.id) {
+             if(s.pos.inRangeTo(ctrl, 4)) return false;
+            }
+            return true;
+        }
     });
+    if(src && src.store.energy < 100) {
+        // See if there's a source near by we can help harvest.
+        opt = creep.pos.findClosestByPath(FIND_SOURCES_ACTIVE);
+        if(opt && creep.pos.getRangeTo(opt) < 5 && opt.energy > 100) {
+            src = opt;
+        }
+    }
     if(src) return done(src);
     
     src = creep.room.storage;
@@ -268,6 +287,14 @@ function findDest(creep) {
     var ctrl = creep.room.controller;
     if(ctrl && ctrl.my && ctrl.ticksToDowngrade < CONTROLLER_DOWNGRADE[ctrl.level] * 0.5) {
         return ctrl;
+    }
+    
+    // If this is a new room, make sure we get a spawn cooking.
+    if(ctrl && ctrl.my && creep.room.find(FIND_MY_SPAWNS).length == 0) {
+        const sites = creep.room.find(FIND_MY_CONSTRUCTION_SITES, {filter: s => {
+            return BUILD_STRUCTS.includes(s.structureType);
+        }})
+        if(sites.length) return sites.shift();
     }
     
     // Do easy upgrades.

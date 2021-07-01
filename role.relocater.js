@@ -9,6 +9,14 @@ module.exports = {
         return mem;
     },
     run: function(creep) {
+        if(creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+            const res = creep.pos.findClosestByPath(FIND_DROPPED_RESOURCES, {filter: {resourceType: RESOURCE_ENERGY}});
+            if(res) {
+                creep.moveTo(res);
+                let ret = creep.pickup(res);
+                if(ret != ERR_FULL) return;
+            }
+        }
         var tgt = creep.memory.reloRoom;
         if(!tgt) {
             console.log(`${creep.name} has invalid target room ${tgt}`);

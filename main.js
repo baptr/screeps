@@ -4,7 +4,7 @@ const ROLES = ['harvester', 'defender', 'claimer', 'relocater', 'miner', 'bob'];
 const ROLE2S = ['bootstrapper', 'remoteHarvester', 'dropHarvester', 'builder',
                 'miner', 'combatant', 'dismantler', 'carrier', 'scout',
                 'hauler', 'storeUpgrader', 'recycle', 'reserver', 'healer',
-                'waiter', 'keeperKiller'];
+                'waiter', 'keeperKiller', 'delivery'];
 var role = {};
 _.forEach(ROLES, r => {
     role[r] = require('role.'+r);
@@ -38,13 +38,11 @@ const rmtHvst = require('tmp.remoteHarvest');
 
 const profiler = require('screeps-profiler');
 
-/*
 profiler.enable();
 _.forEach(role, (m, r) => profiler.registerObject(m, 'role.'+r));
 _.forEach(plan, (m, p) => profiler.registerObject(m, 'plan.'+p));
 _.forEach(struct, (m, s) => profiler.registerObject(m, 'struct.'+s));
 _.forEach(util, (m, u) => profiler.registerObject(m, 'util.'+u));
-*/
 
 console.log('Reloading');
 
@@ -63,8 +61,8 @@ runPlanners: function() {
     })
     
     /*
-    if(Game.time % 300 == 0) {
-        rmtHvst.run('E14N27');
+    if(Game.time % 100 == 0) {
+        rmtHvst.run('W5S32');
     }
     */
 
@@ -73,13 +71,19 @@ runPlanners: function() {
     if(LOCALS.ATTACK) {
       plan.attack.test();
     }
+    /*
+    if(Game.time % 500 == 0) {
+        let ret = role.hauler.spawnRemote(Game.spawns.Spawn2, 'E13N33', 'E15N31');
+        console.log(`Remote hauler spawn: ${ret}`);
+    }
+    */
 },
 cleanup: function() {
     var lost = [];
     for(var name in Memory.creeps) {
         if(!Game.creeps[name]) {
             const mem = Memory.creeps[name];
-            var plaque = name;
+            let plaque = name;
             if(mem.delivered) {
                 plaque += ' (delivered '+mem.delivered+')';
             }
@@ -118,6 +122,10 @@ profiler.registerObject(main, 'main');
 module.exports.loop = () => profiler.wrap(() => {
     main.runPlanners();
     
+    if(!Memory.viz) Memory.viz = {};
+    for(const roomName in Memory.viz) {
+        new RoomVisual(roomName).import(Memory.viz[roomName]);
+    }
     if(Game.time % 20 == 0) {
         // Periodic cleanup
         main.cleanup();
@@ -133,4 +141,5 @@ module.exports.loop = () => profiler.wrap(() => {
         // Memory.stats = stats;
         RawMemory.segments[99] = JSON.stringify(stats);
     }
+    if(Game.cpu.bucket == 10000) Game.cpu.generatePixel();
 })

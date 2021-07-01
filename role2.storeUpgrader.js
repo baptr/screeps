@@ -5,13 +5,24 @@ const BodyBuilder = require('util.bodybuilder');
 const ROLE = 'storeUpgrader';
 const CONTROLLER_UPGRADE_RANGE = 3;
 
+function findSrc(room) {
+    const opts = room.controller.pos.findInRange(FIND_STRUCTURES, CONTROLLER_UPGRADE_RANGE+1, {
+        filter: s => {return s.store && s.store.energy > 0;}
+    });
+    if(!opts.length) return null;
+    const pref =  _.sortBy(opts, [s => -s.store.energy])
+    return pref[0];
+}
+
 module.exports = {
 spawnCondition: function(room, numExisting=0) {
-    return room.storage && numExisting < Math.floor(room.storage.store.energy/4000);
+    const src = findSrc(room);
+    return src && numExisting < Math.floor(src.store.energy/1000) && numExisting < 3;
 },
 spawn: function(spawn) {
     const room = spawn.room;
-    if(!room.storage) {
+    const src = findSrc(room);
+    if(!src) {
         const sites = room.find(FIND_CONSTRUCTION_SITES, {
             filter: {structureType: STRUCTURE_STORAGE}
         });
@@ -27,20 +38,14 @@ spawn: function(spawn) {
         }
     }
     
-    // Sanity check that store is in range to ctrl
-    if(!room.storage.pos.inRangeTo(room.controller, CONTROLLER_UPGRADE_RANGE+1)) {
-        console.log(`${ROLE}: ${room.name} controller too far from storage`);
-        return false;
-    }
-    
     var body = new BodyBuilder([WORK, CARRY, MOVE], room.energyAvailable);
     body.extend([WORK, WORK, MOVE], limit=7);
     body.extend([MOVE], limit=8); // XXX worth it?
     
     // Not worth it at small WORK sizes, save up for a bigger body.
-    if(body.count(WORK) < 5) return false;
+    if(body.count(WORK) < 4) return false;
     
-    var mem = {role: ROLE, cost: body.cost};
+    var mem = {role: ROLE, cost: body.cost, src: src.id};
     const name =  `${ROLE}-${room.name}-${Game.time}`;
     const ret = spawn.spawnCreep(body.sort([MOVE, WORK, CARRY]), name, {memory: mem});
     if(ret != OK) {
@@ -49,9 +54,9 @@ spawn: function(spawn) {
     return ret;
 },
 run: function(creep) {
-    const store = creep.room.storage;
+    const src = Game.getObjectById(creep.memory.src);
     const ctrl = creep.room.controller;
-    if(!store || !ctrl.my) {
+    if(!src || !ctrl.my) {
         console.log(`${creep.name} lost storage!!`);
         // TODO(baptr): Switch to a dropHarvester? They have similar bodies
         return false;
@@ -64,8 +69,7 @@ run: function(creep) {
         creep.memory.delivered += delivery;
         break;
     case ERR_NOT_IN_RANGE:
-        let mvRet = creep.moveTo(ctrl);
-        console.log(`${creep.name} moving to ${ctrl}: ${mvRet}`);
+        creep.moveTo(ctrl);
         return;
     case ERR_NOT_ENOUGH_ENERGY:
         // filling is below
@@ -94,24 +98,24 @@ run: function(creep) {
             // Unless we can write intents directly, this limits us to transfering "everything", withdrawing
             // the empty space we started with, and upgrading with what we withdrew.
             const mv = Math.min(creep.carryCapacity/2, link.energy);
-            let transferRet = creep.transfer(store, RESOURCE_ENERGY, mv-delivery);
+            let transferRet = creep.transfer(src, RESOURCE_ENERGY, mv-delivery);
             let drawRet = creep.withdraw(link, RESOURCE_ENERGY, mv);
             // console.log(`${creep.name} had ${creep.carry.energy} energy, ${delivery} delivery. ${mv} mv. upgradeRet: ${ret} drawRet: ${drawRet} transferRet: ${transferRet}`);
             return;
         }
     }
     // CPU_CLEANUP: Only grab every CARRY*50/WORK ticks.
-    ret = creep.withdraw(store, RESOURCE_ENERGY, delivery);
+    ret = creep.withdraw(src, RESOURCE_ENERGY, delivery);
     switch(ret) {
     case OK:
         break;
     case ERR_NOT_IN_RANGE:
         // TODO(baptr): Should be more careful about positioning at the start
         // so this can't happen.
-        creep.moveTo(store);
+        creep.moveTo(src);
         return
     case ERR_NOT_ENOUGH_RESOURCES:
-        creep.withdraw(store, RESOURCE_ENERGY);
+        creep.withdraw(src, RESOURCE_ENERGY);
         break;
     }
 },

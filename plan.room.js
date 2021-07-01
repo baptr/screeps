@@ -218,7 +218,7 @@ function spawnCreeps(spawn, room) {
     }
     if(spawn.spawning) return;
     
-    if(room.energyAvailable == room.energyCapacityAvailable && room.energyAvailable > 1000) {
+    if(room.energyAvailable == room.energyCapacityAvailable && room.energyAvailable >= 800) {
         if(hauler.spawnCondition(room, numRole(hauler.ROLE))) {
             hauler.spawn(spawn);
         }

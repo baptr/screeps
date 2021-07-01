@@ -3,6 +3,22 @@ const roleBootstrapper = require('role2.bootstrapper');
 const BodyBuilder = require('util.bodybuilder');
 const util = require('util.creep');
 
+function sack(creep) {
+    spawn = creep.pos.findClosestByPath(FIND_MY_SPAWNS);
+    if(!spawn) {
+        pos = creep.pos.findClosestByPath(FIND_MY_CONSTRUCTION_SITES, {
+            filter: {structureType: STRUCTURE_SPAWN}
+        });
+        if(pos) creep.moveTo(pos);
+        return;
+    }
+    if(creep.pos.isNearTo(spawn)) {
+        spawn.recycleCreep(creep);
+    } else {
+        creep.moveTo(spawn);
+    }
+}
+
 const ROLE = 'claimer'
 module.exports = {
     ROLE,
@@ -34,6 +50,7 @@ module.exports = {
         var room = Game.rooms[targetRoom];
         if(room) {
             var ctrl = room.controller;
+            if(ctrl.my) return sack(creep);
             if(!creep.pos.isNearTo(ctrl)) {
                 return creep.moveTo(ctrl);
             }
@@ -44,7 +61,9 @@ module.exports = {
                 break;
             case OK:
                 console.log(`Welcome to ${targetRoom}!!`);
-                creep.memory.role = roleBootstrapper.ROLE;
+                if(creep.getActiveBodyparts(WORK) > 0) { 
+                    creep.memory.role = roleBootstrapper.ROLE;
+                }
                 break;
             default:
                 console.log(`Unrecognized claim(${targetRoom}) ret: ${ret}`);

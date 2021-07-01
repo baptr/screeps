@@ -95,7 +95,7 @@ function fill(creep) {
             if(!dest) dest = creep;
             src = dest.pos.findClosestByPath(sources);
             if(!src) {
-                console.log(`${creep.name} failed to find source in ${srcRoom}`);
+                if(Game.time % 5 == 0) console.log(`${creep.name} failed to find source in ${srcRoom}`);
                 src = sources[0];
                 if(!src) return ERR_NOT_FOUND;
             }
@@ -113,8 +113,11 @@ function fill(creep) {
     }
     if(src.energy == 0) {
         if(creep.carry.energy > 100) {
-            creep.memory.filling = false;
-            return deliver(creep);
+            if(creep.memory.filling) {
+                creep.memory.filling = false;
+                return deliver(creep);
+            }
+            return OK;
         } else if(src.ticksToRegeneration > 50) {
             delete creep.memory.src;
             return; // tempting to return fill(creep), but feels a bit dangerous

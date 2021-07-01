@@ -34,6 +34,11 @@ function findTarget(target, creep) {
     if(ramp) {
         return ramp;
     }
+    
+    var other = creep.pos.findClosestByPath(FIND_HOSTILE_STRUCTURES);
+    if (other) {
+        return other;
+    }
 }
 
 module.exports = {

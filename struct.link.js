@@ -5,7 +5,7 @@ run: function(link) {
     var dest = Game.getObjectById(links.controller);
     if(!dest) return;
     if(dest.id == link.id) return;
-    if(link.energy > dest.energy) {
+    if(link.energy > dest.energy+1) {
         link.transferEnergy(dest);
     }
 }

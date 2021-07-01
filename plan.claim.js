@@ -51,7 +51,7 @@ function run(claimFlag) {
         }
         
         var structs = room.find(FIND_HOSTILE_STRUCTURES);
-        if(structs) {
+        if(structs.length) {
             const dismantler = require('role2.dismantler');
             if(!_.find(Memory.creeps, c => c.role == dismantler.ROLE)) {
                 let ret = dismantler.spawn(spawn, structs[0].id);
@@ -94,6 +94,13 @@ function run(claimFlag) {
             if(ret != OK) console.log(`Failed to spawn ${name}: ${ret}`);
             return ret;
         } else {
+            if(room.find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType == STRUCTURE_SPAWN}).length) {
+                if(Game.time % 100 == 0) {
+                    // TODO(baptr): Spawn a new dismantler?
+                    console.log("Waiting for enemy spawn to be gone in ", room);
+                }
+                return OK; // prevent repeat claim attempts
+            }
             // TODO figure out a place for it via roomPlanner?
             var ret = room.createConstructionSite(spawnPos.x, spawnPos.y, STRUCTURE_SPAWN, 'Spawn'+roomName);
             console.log(`Placing construction site at ${spawnPos} in ${roomName}: ${ret}`);
@@ -108,13 +115,16 @@ function run(claimFlag) {
 // TODO(baptr): Consider Game.map.findRoute...
 // - easier to filter enemy rooms
 function pickSpawn(dstPos, maxCost = CREEP_CLAIM_LIFE_TIME - 50) {
-    var goals = _.map(_.filter(Game.spawns, s => !s.spawning && s.room.energyCapacityAvailable > 1000), s => {
+    var goals = _.map(_.filter(Game.spawns, s => !s.spawning && s.room.energyCapacityAvailable > 650), s => {
         // TODO(baptr): Filter for rooms with a lot of energy?
         return {pos: s.pos, range: 1};
     });
     var pathRes = PathFinder.search(dstPos, goals, {maxCost: maxCost, maxOps: 20000});
     var path = pathRes.path;
-    if(!path.length) return [null, ERR_NO_PATH];
+    if(!path.length) {
+        //console.log(`Claim: unable to find a src spawn with enough energy`);
+        return [null, ERR_NO_PATH];
+    }
     
     path.reverse();
     if(VISUALIZE) visPath(path);
