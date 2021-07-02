@@ -13,8 +13,12 @@ const BodyBuilder = require('util.bodybuilder');
 // remember 5 limit)
 const ROLE = 'dropHarvester';
 module.exports = {
+assigned: function(targetRoom) {
+  return Object.values(Game.creeps).filter(c => c.memory.role == ROLE && (
+      c.memory.remoteRoom == targetRoom || c.pos.roomName == targetRoom));
+},
 spawn: function(spawn) {
-    var room = spawn.room;
+    const room = spawn.room;
     const availEnergy = room.energyAvailable;
     if(availEnergy < MIN_HARVESTER_COST || spawn.spawning) { return ERR_BUSY; }
     
@@ -51,30 +55,29 @@ spawnRemote: function(spawn, srcRoom, srcID=null) {
         return ERR_INVALID_ARGS;
     }
     if(srcRoom && !srcID) {
-        var room = Game.rooms[srcRoom];
+        const room = Game.rooms[srcRoom];
         if(!room) {
-            console.log('Need srcID if srcRoom is not visible');
-            return ERR_INVALID_ARGS;
+          console.log('No srcID for remote dropHarvester, will try to figure it out when I get there...');
+        } else {
+          const src = pickSource(room);
+          if(!src) {
+              console.log(`Unable to find source in ${srcRoom}`);
+              return ERR_NOT_FOUND;
+          }
+          srcID = src.id;
         }
-        var src = pickSource(room);
-        if(!src) {
-            console.log(`Unable to find source in ${srcRoom}`);
-            return ERR_NOT_FOUND;
-        }
-        srcID = src.id;
     }
-    var builder = new BodyBuilder([WORK, WORK, MOVE], spawn.room.energyAvailable);
-    builder.extend([CARRY, CARRY, MOVE], limit=1);
-    builder.extend([WORK, WORK, MOVE]);
-    if(builder.count(WORK) < 6) { // randomly chosen. TODO: math
-        console.log(`Not worth remote dropHarvesting for ${builder.count(WORK)} WORK at ${builder.cost} energy`);
-        return ERR_NOT_ENOUGH_ENERGY;
+    const body = new BodyBuilder([WORK, CARRY, MOVE], spawn.room.energyAvailable);
+    body.extend([WORK, WORK, MOVE]);
+    if(body.count(WORK) < 4) { // randomly chosen. TODO: math
+      console.log(`Not worth remote dropHarvesting for ${body.count(WORK)} WORK at ${body.cost} energy`);
+      return ERR_NOT_ENOUGH_ENERGY;
     }
     const name = `${ROLE}-${srcRoom}-${Game.time}`;
-    var ret = spawn.spawnCreep(builder.sort(), name, {memory: {
+    var ret = spawn.spawnCreep(body.sort([MOVE, CARRY, WORK]), name, {memory: {
         role: ROLE,
         src: srcID,
-        cost: builder.cost,
+        cost: body.cost,
         remoteRoom: srcRoom,
     }})
     if(ret != OK) {
@@ -84,9 +87,9 @@ spawnRemote: function(spawn, srcRoom, srcID=null) {
 },
 run: function(creep) {
     util.track(creep, 'alive');
-    var src = Game.getObjectById(creep.memory.src);
+    let src = Game.getObjectById(creep.memory.src);
     if(!src) {
-        if(creep.memory.remoteRoom) {
+        if(creep.memory.remoteRoom && creep.room.name != creep.memory.remoteRoom) {
             return creep.moveTo(new RoomPosition(25, 25, creep.memory.remoteRoom));
         }
         src = pickSource(creep.room);
@@ -100,7 +103,7 @@ run: function(creep) {
     if(!creep.pos.isNearTo(src)) {
         // XXX need to prevent repositioning for a different container from
         // flapping against this.
-        var ret = creep.moveTo(src);
+        const ret = creep.moveTo(src);
         util.track(creep, 'move', ret);
         return ret;
     }
@@ -145,27 +148,22 @@ run: function(creep) {
         }
         break;
     case ERR_NOT_ENOUGH_RESOURCES:
-        if(creep.carryCapacity && cont) {
-            if(cont instanceof ConstructionSite) {
-                creep.build(cont);
-            } else {
-                if(cont.hits < cont.hitsMax) {
-                    creep.repair(cont);
-                } else {
-                    const structs = _.filter(creep.pos.lookFor(LOOK_STRUCTURES), {
-                        structureType: STRUCTURE_RAMPART
-                    });
-                    if(structs.length) {
-                        creep.repair(structs[0]);
-                    }
-                }
-            }
-            const res = creep.pos.lookFor(LOOK_RESOURCES, {filter: {resourceType: RESOURCE_ENERGY}});
-            if(res.length) creep.pickup(res[0]);
+      if(creep.carryCapacity) {
+        const sites = creep.pos.lookFor(LOOK_CONSTRUCTION_SITES).sort((a, b) => a.progress - b.progress);
+        if(sites.length) {
+          creep.build(sites[0]);
+        } else {
+          const rep = creep.pos.lookFor(LOOK_STRUCTURES).find(s => s.hits < s.hitsMax);
+          if(rep) {
+            creep.repair(rep);
+          }
         }
-        break;
+        const res = creep.pos.lookFor(LOOK_RESOURCES, {filter: {resourceType: RESOURCE_ENERGY}});
+        if(res.length) creep.pickup(res[0]);
+      }
+      break;
     default:
-        console.log(`${creep.name} unhandled harvest ret: ${ret}`);
+      console.log(`${creep.name} unhandled harvest ret: ${ret}`);
     }
 },
 ROLE,

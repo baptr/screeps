@@ -24,6 +24,12 @@ function harvest(creep, src, type=RESOURCE_ENERGY) {
     return creep.harvest(src);
 }
 
+const DEPOSIT_ONLY_STORES = [
+  STRUCTURE_SPAWN,
+  STRUCTURE_EXTENSION,
+  STRUCTURE_TOWER,
+];
+
 function findSrc(creep, type=RESOURCE_ENERGY, resMin=25) {
     var src = Game.getObjectById(creep.memory.source);
     if(resAvail(src, type) > resMin) {
@@ -31,13 +37,14 @@ function findSrc(creep, type=RESOURCE_ENERGY, resMin=25) {
     }
     
     // find closest of res+store structs
-    var structs = creep.room.find(FIND_STRUCTURES, {
-        filter: s => s.structureType != STRUCTURE_SPAWN && s.structureType != STRUCTURE_EXTENSION && (s.store || {})[type] > resMin
+    const structs = creep.room.find(FIND_STRUCTURES, {
+        filter: s => (s.store || {})[type] > resMin && !DEPOSIT_ONLY_STORES.includes(s.structureType)
     });
-    var res = creep.room.find(FIND_DROPPED_RESOURCES, {
+    const res = creep.room.find(FIND_DROPPED_RESOURCES, {
         filter: r => r.resourceType == type && r.amount > resMin
     });
-    src = creep.pos.findClosestByPath(structs.concat(res));
+    const bodies = creep.room.find(FIND_TOMBSTONES, {filter: t => t.store[type] > resMin});
+    src = creep.pos.findClosestByPath(structs.concat(res).concat(bodies));
     if(src) {
         creep.memory.source = src.id;
         return src;
@@ -57,8 +64,16 @@ function findSrc(creep, type=RESOURCE_ENERGY, resMin=25) {
     return null;
 }
 
+const CTRL_UPGRADE_RANGE = 3;
+function roomCtrlStores(room) {
+    return room.controller.pos.findInRange(FIND_STRUCTURES, CTRL_UPGRADE_RANGE+1, {
+        filter: s => s.store
+    });
+}
+
 module.exports = {
     harvest,
     findSrc,
     resAvail,
+    roomCtrlStores,
 };

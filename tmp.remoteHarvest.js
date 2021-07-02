@@ -10,21 +10,12 @@ const SPAWN = local.homeSpawn;
 const destRoom = ((SPAWN || {}).room || {}).name;
 
 module.exports = {
-reserve: function(roomName, spawn=SPAWN) {
-    return reserver.spawn(spawn, roomName);
-},
-harvest: function(roomName, spawn=SPAWN) {
-    return harvester.spawnRemote(spawn, roomName);
-},
 build: function(roomName, spawn=SPAWN) {
     var mem = {};
     relocater.setMem(mem, roomName, builder.ROLE);
     const body = builder.mkBody(spawn.room.energyAvailable);
     const name = `${builder.ROLE}-${roomName}-${Game.time}`;
     return spawn.spawnCreep(body, name, {memory: mem});
-},
-haul: function(roomName, spawn=SPAWN) {
-    return hauler.spawnRemote(spawn, roomName, destRoom);
 },
 roads: function(roomName, spawn=SPAWN) {
     // XXX calculate this stuff.
@@ -48,8 +39,8 @@ run: function(roomName) {
     // so assume this is only run every 500 ticks or so...
     // if(Game.time % 500 != 0) return false;
     
-    var spawns = _.filter(Game.spawns, s => {return !s.spawning && s.room.energyAvailable > 1000});
-    if(spawns.length == 0) return;
+    const spawns = _.filter(Game.spawns, s => {return !s.spawning && s.room.energyAvailable > 600});
+    if(spawns.length == 0) return ERR_BUSY;
     
     const room = Game.rooms[roomName];
     if(room) {
@@ -60,31 +51,40 @@ run: function(roomName) {
         }), c => c.memory.role);
         const numRole = role => (kinds[role] || []).length;
         console.log(`remoteHarvest ${roomName} state:`, JSON.stringify(_.mapValues(kinds, (v, k) => numRole(k))));
-        const ctrl = room.controller;
-        if(numRole(reserver.ROLE) < 1 && !ctrl.reservation || ctrl.reservation.ticksToEnd < 300) {
-            let spawn = spawns.shift();
-            let ret = module.exports.reserve(roomName, spawn);
-            console.log(`${spawn} spawning more reservers: ${ret}`);
-            if(ret != OK) spawns.push(spawn);
-            if(spawns.length == 0) return;
-        }
+
         // would be nice to send (especially) harvesters in before the old ones expire.
-        if(numRole(harvester.ROLE) < 2) {
-            let spawn = spawns.shift();
-            let ret = module.exports.harvest(roomName, spawn);
+        const hvsts = harvester.assigned(roomName).filter(c => c.ticksToLive > 100);
+        if(hvsts.length < 1) {
+            const spawn = spawns.shift();
+            const ret = harvester.spawnRemote(spawn, roomName);
             console.log(`${spawn} spawning more harvesters: ${ret}`);
             if(ret != OK) spawns.push(spawn);
-            if(spawns.length == 0) return;
+            if(spawns.length == 0) return ret;
         }
-        // TODO(baptr): Check these from Memory.creeps instead of room.creeps
-        if(numRole(hauler.ROLE) < 2) {
-            let spawn = spawns.shift();
-            let ret = module.exports.haul(roomName, spawn);
+
+        const hauls = hauler.assigned(roomName);
+        if(hauls.length < 2) {
+            const spawn = spawns.shift();
+            const ret = hauler.spawnRemote(spawn, roomName, destRoom);
             console.log(`${spawn} spawning more haulers: ${ret}`);
             if(ret != OK) spawns.push(spawn);
-            if(spawns.length == 0) return;
+            if(spawns.length == 0) return ret;
         }
+
+        // TODO: Calculate whether we'll drain the unreserved source fast
+        // enough to warrant this.
+        const ctrl = room.controller;
+        const rsvs = reserver.assigned(roomName).filter(c => c.ticksToLive > 100);
+        if(!rsvs.length && (!ctrl.reservation || ctrl.reservation.ticksToEnd < 100)) {
+            const spawn = spawns.shift();
+            const ret = reserver.spawn(spawn, roomName);
+            console.log(`${spawn} spawning more reservers: ${ret}`);
+            if(ret != OK) spawns.push(spawn);
+            if(spawns.length == 0) return ret;
+        }
+
         /*
+        // TODO: See if there's enough to build/repair for this to be useful.
         if(numRole(builder.ROLE) < 1) {
             let spawn = spawns.shift();
             let ret = module.exports.build(roomName, spawn);
@@ -94,7 +94,11 @@ run: function(roomName) {
         }
         */
     } else {
-        module.exports.reserve(roomName);
+      if(!harvester.assigned(roomName).length) {
+        return harvester.spawnRemote(SPAWN, roomName);
+      } else {
+        console.log("Waiting for remoteHarvester to arrive in " + roomName);
+      }
     }
 }
 };

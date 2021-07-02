@@ -1,4 +1,5 @@
 const BodyBuilder = require('util.bodybuilder');
+const resutil = require('util.resources');
 
 function findCtrlStore(room) {
     const opts = room.controller.pos.findInRange(FIND_STRUCTURES, 4, {
@@ -11,6 +12,9 @@ function findCtrlStore(room) {
 
 const ROLE = 'hauler';
 module.exports = {
+assigned: function(srcRoom) {
+  return Object.values(Game.creeps).filter(c => c.memory.role == ROLE && c.memory.remoteRoom == srcRoom);
+},
 spawnCondition: function(room, existing=0) {
     const loose = _.sum(_.map(room.find(FIND_DROPPED_RESOURCES, {
         filter: {resourceType: RESOURCE_ENERGY}
@@ -22,7 +26,9 @@ spawnCondition: function(room, existing=0) {
 spawn: function(spawn, dest=false) {
     const room = spawn.room;
     // TODO: Should also carry to Spawn/extensions.
-    if(!dest) dest = findCtrlStore(room);
+    if(!dest) dest = resutil.roomCtrlStores(room).sort(
+      (a, b) => a.store[RESOURCE_ENERGY] - b.store[RESOURCE_ENERGY]).find(
+      s => s.store.getFreeCapacity(RESOURCE_ENERGY) > 0);
     if(!dest) dest = room.storage;
     if(!dest) return false;
 
@@ -42,15 +48,14 @@ spawn: function(spawn, dest=false) {
     return ret;
 },
 spawnRemote: function(spawn, remoteRoom, destRoom=null) {
-    var storage = spawn.room.storage;
-    if(destRoom) {
-        storage = Game.rooms[destRoom].storage;
-    }
+    const room = destRoom ? Game.rooms[destRoom] : spawn.room;
+    const storage = resutil.roomCtrlStores(room).find(s => s.store.getFreeCapacity(RESOURCE_ENERGY));
     if(!storage) return ERR_RCL_NOT_ENOUGH;
+
     var body = new BodyBuilder([], spawn.room.energyAvailable);
     body.extend([CARRY, MOVE]);
     
-    if(body.count(CARRY) < 10) return ERR_NOT_ENOUGH_ENERGY;
+    if(body.count(CARRY) < 5) return ERR_NOT_ENOUGH_ENERGY;
     
     var mem = {
         role: ROLE,

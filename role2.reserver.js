@@ -14,9 +14,13 @@ const ROLE = 'reserver';
 
 module.exports = {
 ROLE,
+assigned: function(targetRoom) {
+  return Object.values(Game.creeps).filter(c => c.role == ROLE && c.targetRoom == targetRoom);
+},
 spawn: function(spawn, targetRoom) {
     var body = new BodyBuilder([CLAIM, MOVE], spawn.room.energyAvailable);
     body.extend([CLAIM, MOVE]);
+    body.extend([MOVE], limit=body.count(CLAIM));
     
     if(body.count(CLAIM) < 1) { // TODO originally wanted 2
         console.log(`${spawn} can't afford ${ROLE}: ${body.count(CLAIM)} CLAIM costs ${body.cost}, have ${spawn.room.energyAvailable}`);
