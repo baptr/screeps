@@ -54,7 +54,7 @@ run: function(roomName) {
 
         // would be nice to send (especially) harvesters in before the old ones expire.
         const hvsts = harvester.assigned(roomName).filter(c => c.ticksToLive > 100);
-        if(hvsts.length < 1) {
+        if(hvsts.length < room.find(FIND_SOURCES).length) {
             const spawn = spawns.shift();
             const ret = harvester.spawnRemote(spawn, roomName);
             console.log(`${spawn} spawning more harvesters: ${ret}`);
@@ -63,7 +63,9 @@ run: function(roomName) {
         }
 
         const hauls = hauler.assigned(roomName);
-        if(hauls.length < 2) {
+        const dist = Game.map.findRoute(destRoom, roomName).length;
+        console.log(`remoteHarvest(${roomName}) has ${hauls.length} haulers to go ${dist} away`);
+        if(hauls.length < dist*2) {
             const spawn = spawns.shift();
             const ret = hauler.spawnRemote(spawn, roomName, destRoom);
             console.log(`${spawn} spawning more haulers: ${ret}`);
@@ -73,6 +75,7 @@ run: function(roomName) {
 
         // TODO: Calculate whether we'll drain the unreserved source fast
         // enough to warrant this.
+        /*
         const ctrl = room.controller;
         const rsvs = reserver.assigned(roomName).filter(c => c.ticksToLive > 100);
         if(!rsvs.length && (!ctrl.reservation || ctrl.reservation.ticksToEnd < 100)) {
@@ -82,6 +85,7 @@ run: function(roomName) {
             if(ret != OK) spawns.push(spawn);
             if(spawns.length == 0) return ret;
         }
+        */
 
         /*
         // TODO: See if there's enough to build/repair for this to be useful.

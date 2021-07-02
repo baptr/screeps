@@ -34,7 +34,12 @@ spawn: function(spawn) {
     // Small is fine early one, but we'd want to save up later
     if(builder.count(WORK) < 3) return ERR_NOT_ENOUGH_RESOURCES;
     
-    const targetSource = pickSource(room);
+    let targetSource;
+    if(!module.exports.assigned(room.name).length) {
+      targetSource = spawn.pos.findClosestByPath(FIND_SOURCES);
+    } else {
+      targetSource = pickSource(room);
+    }
     if(!targetSource) { return ERR_NOT_FOUND; }
     
     const name = `${ROLE}-${room.name}-${Game.time}`
@@ -54,6 +59,7 @@ spawnRemote: function(spawn, srcRoom, srcID=null) {
         console.log('Need srcRoom and srcID if possible');
         return ERR_INVALID_ARGS;
     }
+    // TODO: Would be nice to start with a source near the exit, but it's a bit awkward.
     if(srcRoom && !srcID) {
         const room = Game.rooms[srcRoom];
         if(!room) {
@@ -79,6 +85,7 @@ spawnRemote: function(spawn, srcRoom, srcID=null) {
         src: srcID,
         cost: body.cost,
         remoteRoom: srcRoom,
+        life: {},
     }})
     if(ret != OK) {
         console.log(`Failed to spawn ${name}: ${ret}`);
@@ -215,10 +222,12 @@ function planContainer(creep, src) {
             // Wait until we're there to figure it out.
             return null;
         }
+        /*
         // Only think about containers in a controlled (owned or reserved) room.
         let ctrl = creep.room.controller;
         // TODO(baptr): Consider latching 'no' if appropriate.
         if(!ctrl || !ctrl.reservation || !ctrl.reservation.username == 'baptr') return null;
+        */
     }
     if(!cont) {
         var conts = src.pos.findInRange(FIND_STRUCTURES, 1, {

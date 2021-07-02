@@ -60,8 +60,8 @@ runPlanners: function() {
         plan.room.run(r);
     })
     
-    if(LOCALS.remoteHarvestRooms && LOCALS.remoteHarvestRooms.length && Game.time % 300 == 0) {
-      const idx = (Game.time/300) % LOCALS.remoteHarvestRooms.length;
+    if(LOCALS.remoteHarvestRooms && LOCALS.remoteHarvestRooms.length && Game.time % 100 == 0) {
+      const idx = (Game.time/100) % LOCALS.remoteHarvestRooms.length;
       const tgt = LOCALS.remoteHarvestRooms[idx];
       rmtHvst.run(tgt);
     }
