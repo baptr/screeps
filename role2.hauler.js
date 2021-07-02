@@ -21,15 +21,16 @@ spawnCondition: function(room, existing=0) {
 },
 spawn: function(spawn, dest=false) {
     const room = spawn.room;
+    // TODO: Should also carry to Spawn/extensions.
     if(!dest) dest = findCtrlStore(room);
     if(!dest) dest = room.storage;
     if(!dest) return false;
 
     var body = new BodyBuilder([], room.energyAvailable);
-    body.extend([CARRY, MOVE]);
+    body.extend([CARRY, MOVE], limit=10);
     
     // Not worth it. Save up
-    if(body.count(CARRY) < 5) return false;
+    if(body.count(CARRY) < 3) return false;
     
     // TODO(baptr): Allow some specialization?
     var mem = {role: ROLE, cost: body.cost, dest: dest.id};

@@ -44,7 +44,7 @@ _.forEach(plan, (m, p) => profiler.registerObject(m, 'plan.'+p));
 _.forEach(struct, (m, s) => profiler.registerObject(m, 'struct.'+s));
 _.forEach(util, (m, u) => profiler.registerObject(m, 'util.'+u));
 
-console.log('Reloading');
+console.log(`Reloading at tick ${Game.time}`);
 
 function buildingSay(struct, text) {
     struct.room.visual.text(
@@ -60,23 +60,17 @@ runPlanners: function() {
         plan.room.run(r);
     })
     
-    /*
-    if(Game.time % 100 == 0) {
-        rmtHvst.run('W5S32');
+    if(LOCALS.remoteHarvestRooms && LOCALS.remoteHarvestRooms.length && Game.time % 300 == 0) {
+      const idx = (Game.time/300) % LOCALS.remoteHarvestRooms.length;
+      const tgt = LOCALS.remoteHarvestRooms[idx];
+      rmtHvst.run(tgt);
     }
-    */
 
     plan.lab.test();
     plan.claim.test();
     if(LOCALS.ATTACK) {
       plan.attack.test();
     }
-    /*
-    if(Game.time % 500 == 0) {
-        let ret = role.hauler.spawnRemote(Game.spawns.Spawn2, 'E13N33', 'E15N31');
-        console.log(`Remote hauler spawn: ${ret}`);
-    }
-    */
 },
 cleanup: function() {
     var lost = [];
@@ -124,11 +118,6 @@ profiler.registerObject(main, 'main');
 
 module.exports.loop = () => profiler.wrap(() => {
     main.runPlanners();
-
-    if(!Memory.viz) Memory.viz = {};
-    for(const roomName in Memory.viz) {
-      new RoomVisual(roomName).import(Memory.viz[roomName]);
-    }
     
     if(!Memory.viz) Memory.viz = {};
     for(const roomName in Memory.viz) {
@@ -153,5 +142,5 @@ module.exports.loop = () => profiler.wrap(() => {
         // Memory.stats = stats;
         RawMemory.segments[99] = JSON.stringify(stats);
     }
-    if(Game.cpu.bucket == 10000) Game.cpu.generatePixel();
+    if(Game.cpu.generatePixel && Game.cpu.bucket >= 10000) Game.cpu.generatePixel();
 })

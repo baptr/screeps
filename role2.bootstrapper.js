@@ -21,6 +21,11 @@ const BUILD_STRUCTS = [
     STRUCTURE_ROAD,
     STRUCTURE_EXTRACTOR,
 ];
+const PRIORITY_BUILD_TYPES = [
+    STRUCTURE_TOWER,
+    STRUCTURE_EXTENSION,
+    STRUCTURE_CONTAINER,
+];
 
 function trace(creep, msg) {
     if(!creep.memory.trace) return;
@@ -38,7 +43,7 @@ spawnCondition: function(room, numBoots) {
 
     // Hardcoded 6/4/2 was too much for a single-source room.
     // TODO(baptr): Scale down when first starting and getting assistance from another room.
-    if(numBoots >= numSources*4) { return false }
+    if(numBoots >= numSources*3) { return false }
     
     // TODO(baptr): Tune limit before leaving more room for other types.
     if(energyCap > 1000 && numBoots >= numSources*2 && spareEnergy < numSources*3000) {
@@ -106,6 +111,7 @@ run: function(creep) {
             ret = creep.withdraw(src, RESOURCE_ENERGY);
             util.track(creep, 'withdraw', ret);
             pickupPower = src.store.energy;
+            delete creep.memory.src;
         } else {
             ret = creep.harvest(src);
             util.track(creep, 'harvest', ret);
@@ -354,6 +360,10 @@ function findDest(creep) {
     }})
     dest = creep.pos.findClosestByPath(sites, {filter: s => s.progress > 0});
     if(dest) { return dest; }
+    for(const t of PRIORITY_BUILD_TYPES) {
+        dest = creep.pos.findClosestByPath(sites, {filter: s => s.structureType == t});
+        if(dest) return dest;
+    }
     dest = creep.pos.findClosestByPath(sites);
     if(dest) { return dest; }
     

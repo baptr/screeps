@@ -16,6 +16,8 @@ function run(claimFlag) {
     const spawnPos = claimFlag.pos;
     const roomName = spawnPos.roomName;
     const room = Game.rooms[roomName];
+
+    if(!claimable && !room) return ERR_GCL_NOT_ENOUGH;
     
     const obs = Game.getObjectById(module.exports.observer);
     if(obs) {
@@ -24,7 +26,7 @@ function run(claimFlag) {
             console.log(`Unable to observe ${roomName} from ${obs}: ${ret}`);
         }
         if(!room) {
-            // TODO(baptr): If this happens multiple times, the observer msut be in
+            // TODO(baptr): If this happens multiple times, the observer must be in
             // use elsewhere...
             console.log(`No visibility into claim target ${roomName}, trying next tick...`);
             return ERR_NOT_FOUND;
@@ -115,16 +117,13 @@ function run(claimFlag) {
 // TODO(baptr): Consider Game.map.findRoute...
 // - easier to filter enemy rooms
 function pickSpawn(dstPos, maxCost = CREEP_CLAIM_LIFE_TIME - 50) {
-    var goals = _.map(_.filter(Game.spawns, s => !s.spawning && s.room.energyCapacityAvailable > 650), s => {
+    var goals = _.map(_.filter(Game.spawns, s => !s.spawning && s.room.energyCapacityAvailable >= 650), s => {
         // TODO(baptr): Filter for rooms with a lot of energy?
         return {pos: s.pos, range: 1};
     });
     var pathRes = PathFinder.search(dstPos, goals, {maxCost: maxCost, maxOps: 20000});
     var path = pathRes.path;
-    if(!path.length) {
-        //console.log(`Claim: unable to find a src spawn with enough energy`);
-        return [null, ERR_NO_PATH];
-    }
+    if(!path.length) return [null, ERR_NO_PATH];
     
     path.reverse();
     if(VISUALIZE) visPath(path);
@@ -164,9 +163,10 @@ test: function() {
     var target = Game.flags.Claim;
     if(target) {
         let ret = run(target);
-        if(ret != OK) {
-            console.log(`Claim(${target.pos}) = ${ret}`);
-        }
+        // if(ret != OK) console.log(`Claim(${target.pos}) = ${ret}`);
+        return ret;
+    } else {
+      return ERR_NOT_FOUND;
     }
 }
 };

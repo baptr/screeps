@@ -218,7 +218,8 @@ function spawnCreeps(spawn, room) {
     }
     if(spawn.spawning) return;
     
-    if(room.energyAvailable == room.energyCapacityAvailable && room.energyAvailable >= 800) {
+    // RCL 2 seems early enough to start trying to use storeUpgraders
+    if(room.energyAvailable == room.energyCapacityAvailable && room.energyAvailable > 500) {
         if(hauler.spawnCondition(room, numRole(hauler.ROLE))) {
             hauler.spawn(spawn);
         }

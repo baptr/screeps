@@ -178,7 +178,6 @@ class Queue {
       const idx = this.data.findIndex(f => n.x == f.x && n.y == f.y);
       if(idx >= 0) {
         const f = this.data[idx];
-        // console.log(`Trying to re-insert (${n.x}, ${n.y}). Was {cost=${f.cost}, est=${f.est}, via=(${f.prev.x}, ${f.prev.y})}, now {cost=${n.cost}, est=${n.est}, via=(${n.prev.x}, ${n.prev.y})}`);
         this.data[idx] = n;
       } else {
         this.data.push(n);

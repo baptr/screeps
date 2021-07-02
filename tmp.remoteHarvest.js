@@ -4,8 +4,9 @@ const harvester = require('role2.dropHarvester')
 const relocater = require('role.relocater');
 const builder = require('role2.builder');
 const hauler = require('role2.hauler');
+const local = require('local');
 
-const SPAWN = Game.spawns.Spawn1;
+const SPAWN = local.homeSpawn;
 const destRoom = ((SPAWN || {}).room || {}).name;
 
 module.exports = {

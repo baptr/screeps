@@ -17,7 +17,7 @@ function findSrc(room) {
 module.exports = {
 spawnCondition: function(room, numExisting=0) {
     const src = findSrc(room);
-    return src && numExisting < Math.floor(src.store.energy/1000) && numExisting < 3;
+    return src && numExisting < Math.floor(src.store.energy/900) && numExisting < 3;
 },
 spawn: function(spawn, mem={}) {
     const room = spawn.room;
@@ -39,13 +39,15 @@ spawn: function(spawn, mem={}) {
     }
     
     var body = new BodyBuilder([WORK, CARRY, MOVE], room.energyAvailable);
-    body.extend([WORK, WORK, MOVE], limit=7);
+    body.extend([WORK], limit=10);
     body.extend([MOVE], limit=8); // XXX worth it?
     
     // Not worth it at small WORK sizes, save up for a bigger body.
     if(body.count(WORK) < 3) return false;
     
-    const mem = {role: ROLE, cost: body.cost, src: src.id};
+    mem.role = ROLE;
+    mem.cost = body.cost;
+    mem.src = src.id;
     const name =  `${ROLE}-${room.name}-${Game.time}`;
     const ret = spawn.spawnCreep(body.sort([MOVE, WORK, CARRY]), name, {memory: mem});
     if(ret != OK) {

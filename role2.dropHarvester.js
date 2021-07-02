@@ -20,11 +20,15 @@ spawn: function(spawn) {
     
     var builder = new BodyBuilder([WORK, WORK, MOVE], availEnergy);
     builder.extend([WORK, WORK, MOVE], limit=(HARVESTER_WORKS - builder.count(WORK))/2);
+    if(builder.count(WORK) < 3) builder.extend([WORK], limit=1);
     builder.extend([CARRY, MOVE], limit=1);
+    builder.extend([WORK, WORK, MOVE]);
+    builder.extend([WORK]);
     builder.sort();
     
-    // TODO(baptr): Base on available locatiosn near the spawn.
-    if(builder.count(WORK) < 4) return ERR_NOT_ENOUGH_RESOURCES;
+    // TODO(baptr): Base on available locations near the spawn, and total room tier.
+    // Small is fine early one, but we'd want to save up later
+    if(builder.count(WORK) < 3) return ERR_NOT_ENOUGH_RESOURCES;
     
     const targetSource = pickSource(room);
     if(!targetSource) { return ERR_NOT_FOUND; }

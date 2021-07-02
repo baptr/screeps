@@ -32,7 +32,7 @@ function findSrc(creep, type=RESOURCE_ENERGY, resMin=25) {
     
     // find closest of res+store structs
     var structs = creep.room.find(FIND_STRUCTURES, {
-        filter: s => (s.store || {})[type] > resMin
+        filter: s => s.structureType != STRUCTURE_SPAWN && s.structureType != STRUCTURE_EXTENSION && (s.store || {})[type] > resMin
     });
     var res = creep.room.find(FIND_DROPPED_RESOURCES, {
         filter: r => r.resourceType == type && r.amount > resMin
@@ -42,6 +42,9 @@ function findSrc(creep, type=RESOURCE_ENERGY, resMin=25) {
         creep.memory.source = src.id;
         return src;
     }
+
+    // TODO: Consider if it's acceptable to raid the spawn energy.
+
     // fall back on trying to harvest
     if(type == RESOURCE_ENERGY && creep.getActiveBodyparts(WORK)) {
         // memoize or not?
