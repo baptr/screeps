@@ -53,7 +53,7 @@ function findTarget(creep) {
         switch(s.structureType) {
         case STRUCTURE_RAMPART:
         case STRUCTURE_WALL:
-            return s.hits/(s.hitsMax/1000);
+            return s.hits/300e3; // Normalize walls and ramparts to keep defenses flat
         default:
             return s.hits/s.hitsMax;
         }
@@ -201,7 +201,9 @@ run: function(creep) {
             }
             if(creep.moveTo(source) == ERR_NO_PATH) {
                 creep.memory.blocked++;
-                if(creep.memory.blocked > 5) {
+                // TODO: Find a better way not to stay latched on to a source
+                // that's blocked by dropHarvesters.
+                if(creep.memory.blocked > 2) {
                     console.log(`${creep.name} unable to reach ${source}`);
                     delete creep.memory.source;
                 }

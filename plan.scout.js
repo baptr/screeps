@@ -1,25 +1,22 @@
-function demo() {
-  const knowledge = {
-    'E28S12': {
-      lastSeen: 19700,
-      sources: [{x: 16, y: 28}, {x:16, y: 24}],
-      controller: {x: 18, y: 15, rcl: 3, owner: 'baptr'},
-      rawMatrix: [/*blob*/],
-      mineral: {x: 8, y: 21, type: RESOURCE_LEMERGIUM},
-    },
-    'E24S16': {
-      lastSeen: 19653,
-      sources: [{x: 9, y: 16}, {x: 41, y: 12}, {x: 41, y: 39}],
-      mineral: {x: 6, y: 45, type: RESOURCE_KEANIUM},
-      rawMatrix: [/*blob*/],
-      invaderCore: {level: 1, x: 4, y: 25, store: {'X': 1, 'ZK': 45}},
-      // TODO: Confirm whether lairs get offset if you kill its keeper.
-      invaderLairs: [{x: 9, y: 13, estEpoch: 503+300}, {x: 37, y: 9, estEpoch: 803}, {x: 38, y: 43, estEpoch: 803}],
-    }
-  };
+/*
+{
+  "lastSeen": 58840,
+  "controller": { "x": 18, "y": 15, "rcl": 4, "owner": "baptr" },
+  "sources": [
+    { "x": 16, "y": 24, "max": 3000 },
+    { "x": 16, "y": 28, "max": 3000 }
+  ],
+  "mineral": { "x": 8, "y": 21, "type": "L", "density": 2, "expires": null },
+  "towers": [
+    { "x": 19, "y": 36 }
+  ],
+  "rawMatrix": [/*blob* /],
 }
-
+*/
 function dumpRoom(room) {
+  if(!room instanceof Room) {
+    room = Game.rooms[room];
+  }
   const start = Game.cpu.getUsed();
   const out = {lastSeen: Game.time};
 
@@ -44,7 +41,7 @@ function dumpRoom(room) {
   const deps = room.find(FIND_DEPOSITS).map(d => ({
     x: d.pos.x, y: d.pos.y,
     type: d.depositType,
-    ticksLeft: d.ticksToDecay}));
+    expires: Game.time+d.ticksToDecay}));
   if(deps.length) { // TODO: decide when to do empty absent. Just based on prevalence?
     out.deposits = deps;
   }
@@ -53,7 +50,7 @@ function dumpRoom(room) {
     x: m.pos.x, y: m.pos.y,
     type: m.mineralType,
     density: m.density,
-    ticksLeft: m.ticksToRegenerate}));
+    expires: Game.time+m.ticksToRegenerate}));
   if(minerals.length) {
     if(minerals.length > 1) {
       console.log(`Room ${room.name} has multiple minerals, dumpRoom doesn't support this: ${JSON.stringify(minerals)}`);
@@ -66,9 +63,9 @@ function dumpRoom(room) {
   for(const s of structs) {
     if(s instanceof StructureKeeperLair) {
       if(!out.invaderLairs) out.invaderLairs = [];
-      // XXX figure out what ticksToSpawn looks like when a keeper is still active.
+      // XXX figure out what ticksToSpawn looks like when a keeper is still active
       // I probably need to look for nearby keeper creeps and add 300 to their TTL.
-      out.invaderLairs.push({x: s.pos.x, y: s.pos.y, nextSpawn: s.ticksToSpawn}); 
+      out.invaderLairs.push({x: s.pos.x, y: s.pos.y, nextSpawn: Game.time+s.ticksToSpawn}); 
     } else if(s instanceof StructureInvaderCore) {
       out.invaderCore = {
         x: s.pos.x, y: s.pos.y,
@@ -85,6 +82,8 @@ function dumpRoom(room) {
     } else if(s instanceof StructureTower) {
       if(!out.towers) out.towers = [];
       out.towers.push({x: s.pos.x, y: s.pos.y});
+    } else if(s instanceof StructurePowerBank) {
+      out.powerBank = {x: s.pos.x, y: s.pos.y, power: s.power, hits: s.hits, expires: Game.time+s.ticksToDecay};
     }
   }
 
