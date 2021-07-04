@@ -3,6 +3,7 @@ const builder = require('role2.builder');
 const relocater = require('role.relocater');
 const bootstrapper = require('role2.bootstrapper');
 const scout = require('role2.scout');
+const pathUtil = require('util.pathing');
 
 const VISUALIZE = true;
 const BOOTSTRAP = true;
@@ -35,7 +36,7 @@ function run(claimFlag) {
         if(!scout.exists(roomName)) {
             return scout.spawn(roomName);
         }
-        return ERR_NO_PATH;
+        return ERR_NOT_OWNER;
     }
     
     const ctrl = room.controller;
@@ -51,6 +52,13 @@ function run(claimFlag) {
             if(claimerRet == OK) return OK;
             console.log(`Claim(${roomName}): spawn claimer: ${ret}`);
         }
+
+        /*
+        var baddies = room.find(FIND_HOSTILE_CREEPS);
+        if(baddies.length) {
+          const defender = require('role.defender');
+        }
+        */
         
         var structs = room.find(FIND_HOSTILE_STRUCTURES);
         if(structs.length) {
@@ -68,7 +76,7 @@ function run(claimFlag) {
                 {filter: {structureType: STRUCTURE_SPAWN}}).length) {
             // Already planned, just send in some bootstrappers to help out.
             
-            if(room.energyCapacityAvailable > 700) {
+            if(room.energyCapacityAvailable > 500) {
                 console.log("Initial bootstrapping of",roomName,"complete");
                 claimFlag.remove();
                 return OK;
@@ -84,14 +92,14 @@ function run(claimFlag) {
             if(Game.time < next) return OK;
             room.memory.nextSpawnAttempt = Game.time + 100;
             
-            var [spawn, path] = pickSpawn(ctrl.pos, CREEP_LIFE_TIME - 600);
+            const [spawn, path] = pickSpawn(ctrl.pos, CREEP_LIFE_TIME - 600);
             if(!spawn) return path;
             
             var body = builder.mkBody(spawn.room.energyAvailable);
             if(!body) return;
             const name = `relo-bootstrap-${roomName}-${Game.time}`;
             var ret = spawn.spawnCreep(body, name, {
-                memory: relocater.setMem({}, roomName, 'bootstrapper'),
+                memory: relocater.setMem({}, roomName, 'bootstrapper', spawn.room.name),
             });
             if(ret != OK) console.log(`Failed to spawn ${name}: ${ret}`);
             return ret;
@@ -116,18 +124,36 @@ function run(claimFlag) {
 // possible to the target.
 // TODO(baptr): Consider Game.map.findRoute...
 // - easier to filter enemy rooms
-function pickSpawn(dstPos, maxCost = CREEP_CLAIM_LIFE_TIME - 50) {
-    var goals = _.map(_.filter(Game.spawns, s => !s.spawning && s.room.energyCapacityAvailable >= 650), s => {
-        // TODO(baptr): Filter for rooms with a lot of energy?
-        return {pos: s.pos, range: 1};
-    });
-    var pathRes = PathFinder.search(dstPos, goals, {maxCost: maxCost, maxOps: 20000});
-    var path = pathRes.path;
-    if(!path.length) return [null, ERR_NO_PATH];
+function pickSpawn(dstPos, maxCost = CREEP_CLAIM_LIFE_TIME - 10) {
+    const macroRooms = {};
+    const spawns = Object.values(Game.spawns).filter(s => s.isActive && !s.spawning && s.room.energyCapacityAvailable >= 650);
+    if(!spawns.length) {
+      return [null, ERR_BUSY];
+    }
+    for(const s of spawns) {
+      if(macroRooms[s.room.name]) continue;
+      macroRooms[s.room.name] = true;
+      const path = pathUtil.macroPath(s.room.name, dstPos.roomName);
+      if(path == ERR_NO_PATH) continue;
+      for(const step of path) {
+        macroRooms[step.room] = true;
+      }
+    }
+    const goals = spawns.map(s => ({pos: s.pos, range: 1}));
+    const pathRes = PathFinder.search(dstPos, goals, {plainCost: 1, swampCost: 1, maxCost, maxOps: 20000,
+      roomCallback: name => macroRooms[name] ? undefined : false});
+    const path = pathRes.path;
+    if(!path.length) {
+      console.log(`plan.claim: no path: ${JSON.stringify(pathRes)}`);
+      return [null, ERR_NO_PATH];
+    }
     
     path.reverse();
     if(VISUALIZE) visPath(path);
-    if(pathRes.incomplete) return [null, ERR_NOT_IN_RANGE];
+    if(pathRes.incomplete) {
+      console.log(`Claimer unable to path. Best match has cost=${pathRes.cost}, took ${pathRes.ops}`);
+      return [null, ERR_NOT_IN_RANGE];
+    }
 
     var spawn = path[0].findClosestByRange(FIND_MY_SPAWNS);
     if(!spawn) {
@@ -158,12 +184,14 @@ function visPath(path) {
 module.exports = {
 observer: '5b51885c8610fd40ae72c7da',
 run: run,
-pickSpawn: pickSpawn,
+pickSpawn,
 test: function() {
-    var target = Game.flags.Claim;
+    const target = Game.flags.Claim;
     if(target) {
-        let ret = run(target);
-        // if(ret != OK) console.log(`Claim(${target.pos}) = ${ret}`);
+        const ret = run(target);
+        if(ret != OK) {
+          if(ret != ERR_NOT_OWNER || Game.time%50 == 0) console.log(`Claim(${target.pos}) = ${ret}`);
+        }
         return ret;
     } else {
       return ERR_NOT_FOUND;

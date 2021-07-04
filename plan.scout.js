@@ -88,6 +88,8 @@ function dumpRoom(room) {
   }
 
   // Matrix...
+  // TODO: Maybe only build the matrix if there are actually obstacles and roads.
+  // TODO: Consider omitting terrain data if it makes it easier to compress.
   const matrix = new PathFinder.CostMatrix;
   const terrain = room.getTerrain().getRawBuffer();
   for(let y = 0; y < 50; y++) {

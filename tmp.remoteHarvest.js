@@ -5,6 +5,7 @@ const relocater = require('role.relocater');
 const builder = require('role2.builder');
 const hauler = require('role2.hauler');
 const local = require('local');
+const resUtil = require('util.resources');
 
 const SPAWN = local.homeSpawn;
 const destRoom = ((SPAWN || {}).room || {}).name;
@@ -52,20 +53,10 @@ run: function(roomName) {
         const numRole = role => (kinds[role] || []).length;
         console.log(`remoteHarvest ${roomName} state:`, JSON.stringify(_.mapValues(kinds, (v, k) => numRole(k))));
 
-        // would be nice to send (especially) harvesters in before the old ones expire.
-        const hvsts = harvester.assigned(roomName).filter(c => c.ticksToLive > 100);
-        if(hvsts.length < room.find(FIND_SOURCES).length) {
-            const spawn = spawns.shift();
-            const ret = harvester.spawnRemote(spawn, roomName);
-            console.log(`${spawn} spawning more harvesters: ${ret}`);
-            if(ret != OK) spawns.push(spawn);
-            if(spawns.length == 0) return ret;
-        }
-
         const hauls = hauler.assigned(roomName);
         const dist = Game.map.findRoute(destRoom, roomName).length;
         console.log(`remoteHarvest(${roomName}) has ${hauls.length} haulers to go ${dist} away`);
-        if(hauls.length < dist*2) {
+        if(hauls.length < dist*2 && hauls.length * 500 < resUtil.roomResource(room)) {
             const spawn = spawns.shift();
             const ret = hauler.spawnRemote(spawn, roomName, destRoom);
             console.log(`${spawn} spawning more haulers: ${ret}`);
@@ -81,11 +72,24 @@ run: function(roomName) {
         if(!rsvs.length && (!ctrl.reservation || ctrl.reservation.ticksToEnd < 100)) {
             const spawn = spawns.shift();
             const ret = reserver.spawn(spawn, roomName);
-            console.log(`${spawn} spawning more reservers: ${ret}`);
+            // XXX Debugging how I ended up with 3 reservers.
+            console.log(`${spawn} spawning more reservers (had ${rsvs}, ${JSON.stringify(ctrl.reservation)}): ${ret}`);
             if(ret != OK) spawns.push(spawn);
             if(spawns.length == 0) return ret;
         }
         */
+
+        // TODO: don't necessarily need a harvester yet if road workers are keeping the sources empty..
+        // TODO: or even to spawn more (yet) if there's already a backlog of energy around...
+        const hvsts = harvester.assigned(roomName).filter(c => c.ticksToLive > 100);
+        if(hvsts.length < room.find(FIND_SOURCES).length) {
+            const spawn = spawns.shift();
+            const ret = harvester.spawnRemote(spawn, roomName);
+            console.log(`${spawn} spawning more harvesters: ${ret}`);
+            if(ret != OK) spawns.push(spawn);
+            if(spawns.length == 0) return ret;
+        }
+
 
         /*
         // TODO: See if there's enough to build/repair for this to be useful.

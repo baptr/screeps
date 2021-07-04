@@ -96,9 +96,9 @@ spawn: function(spawn, gather, target) {
     
     const bodySort = {};
     bodySort[TOUGH] = 1;
-    bodySort[RANGED_ATTACK] = 2;
-    bodySort[MOVE] = 3;
-    bodySort[ATTACK] = 4;
+    bodySort[MOVE] = 2;
+    bodySort[ATTACK] = 3;
+    bodySort[RANGED_ATTACK] = 4;
     body.sort((a, b) => bodySort[a] - bodySort[b]);
     
     spawn.spawnCreep(body, `${ROLE}-${spawn.name}-${Game.time}`, {memory: {

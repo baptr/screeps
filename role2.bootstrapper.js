@@ -84,6 +84,18 @@ spawn: function(spawn, extMem={}) {
 // - Deliver for spawning, then build extensions only, then upgrade
 run: function(creep) {
     util.track(creep, 'alive');
+
+    if(util.flee(creep, 6, 1) == OK) {
+      console.log(`${creep.name} is running away from attackers`);
+      return;
+    }
+
+    if(creep.carryCapacity == 0) {
+      // XXX place (a) MOVE last so it can flee for help, or something?
+      creep.say("Help :-(");
+      return;
+    }
+
     if(creep.carry.energy == creep.carryCapacity) creep.memory.filling = false;
     if(creep.carry.energy == 0) {
         delete creep.memory.src;
@@ -156,6 +168,23 @@ run: function(creep) {
             }
             creep.memory.dest = dest.id;
             creep.memory.stuck = 0;
+        }
+
+        // XXX Tried building some roads along the way, but it means we never
+        // progress on the actual goal and just do lots of trips.
+        const range = creep.pos.getRangeTo(dest);
+        if(range > 3 && creep.fatigue > 0) {
+          const cPos = creep.pos;
+          const roadCS = cPos.findInRange(FIND_CONSTRUCTION_SITES, 3, {filter: s => s.structureType == STRUCTURE_ROAD});
+          roadCS.sort((a, b) => (b.progress == a.progress) ? cPos.getRangeTo(a) - cPos.getRangeTo(b) : b.progress - a.progress);
+          const cs = roadCS.shift();
+          if(cs) {
+            if(creep.build(cs) == OK) {
+              util.track(creep, 'build', ret);
+              trace(creep, `passing build ${dest}`);
+              creep.memory.delivered += creep.getActiveBodyparts(WORK)*BUILD_POWER;
+            }
+          }
         }
         
         var effort;
@@ -262,6 +291,9 @@ function findSrc(creep) {
     
     src = creep.pos.findClosestByPath(FIND_RUINS, {filter: s => s.store.energy > 0});
     if(src) return done(src);
+
+    src = creep.pos.findClosestByPath(FIND_TOMBSTONES, {filter: t => t.store.energy > 0});
+    if(src) return done(src);
     
     // XXX only pick up from a container near the controller if you're going to upgrade
     src = creep.pos.findClosestByPath(FIND_STRUCTURES, {filter:
@@ -304,7 +336,7 @@ function findSrc(creep) {
 function findDest(creep) {
     // Make sure we don't downgrade.
     var ctrl = creep.room.controller;
-    if(ctrl && ctrl.my && ctrl.ticksToDowngrade < CONTROLLER_DOWNGRADE[ctrl.level] * 0.5) {
+    if(ctrl && ctrl.my && ctrl.ticksToDowngrade < CONTROLLER_DOWNGRADE[ctrl.level] * 0.6) {
         return ctrl;
     }
     

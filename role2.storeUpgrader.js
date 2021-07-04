@@ -56,7 +56,7 @@ spawn: function(spawn, mem={}) {
     return ret;
 },
 run: function(creep) {
-    const src = Game.getObjectById(creep.memory.src);
+    let src = Game.getObjectById(creep.memory.src);
     const ctrl = creep.room.controller;
     if(!src || !ctrl.my) {
         console.log(`${creep.name} lost storage!!`);
@@ -105,6 +105,14 @@ run: function(creep) {
             // console.log(`${creep.name} had ${creep.carry.energy} energy, ${delivery} delivery. ${mv} mv. upgradeRet: ${ret} drawRet: ${drawRet} transferRet: ${transferRet}`);
             return;
         }
+    }
+    if(src && src.store.energy == 0) {
+      src = findSrc(creep.room);
+      if(src) {
+        creep.memory.src = src.id;
+      } else {
+        return;
+      }
     }
     // CPU_CLEANUP: Only grab every CARRY*50/WORK ticks.
     ret = creep.withdraw(src, RESOURCE_ENERGY, delivery);

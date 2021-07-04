@@ -7,9 +7,11 @@ const bob = require('role.bob');
 const hauler = require('role2.hauler');
 const storeUpgrader = require('role2.storeUpgrader');
 const remoteHarvester = require('role2.remoteHarvester');
+const relocator = require('role.relocater');
+const local = require('local');
 
 const splay = require('util.splay');
-const pathing = require('util.pathing');
+const pathUtil = require('util.pathing');
 
 /* TODOs:
  - Add additional spawners at some point to avoid spawn time bottlenecks.
@@ -30,7 +32,7 @@ function planRoads(room) {
         filter: s => ROAD_DESTS.includes(s.structureType),
     });
     
-    const pathMatrix = pathing.roomCallback(room.name);
+    const pathMatrix = pathUtil.roomCallback(room.name);
     // pairwise among all of them is probably best...
     var all = sources.concat(dests);
     var ret = [];
@@ -43,7 +45,7 @@ function planRoads(room) {
             if(from instanceof StructureController) {
                 [from, to] = [to, from];
             }
-            ret.push(...pathing.swampCheck(from.pos, to.pos, pathMatrix));
+            ret.push(...pathUtil.swampCheck(from.pos, to.pos, pathMatrix));
         }
     }
     _.forEach(ret, p => room.createConstructionSite(p, STRUCTURE_ROAD));
@@ -68,6 +70,7 @@ function numBuilding(room, type) {
 // - Maybe leave a good path there (best path from spawn?)
 // - Or maybe diamond around the sources themselves?
 // TODO(baptr): Memoize this in room memory until controller level changes.
+// TODO: Fill in the spaces between buildings around the spawn with roads if swampy.
 function planBuildings(pos, types) {
     const room = Game.rooms[pos.roomName];
     if(!room) {
@@ -138,44 +141,74 @@ function countCPU(id, f) {
     return ret;
 }
 
+const SCARY_PARTS = [ATTACK, RANGED_ATTACK, CLAIM];
+
 module.exports = {
 run: function(room) {
     if(!room) {
         if((Game.time/40) % 10 == 0) console.log("No room provided to planner!");
         return;
     }
-    var spawns = room.find(FIND_MY_SPAWNS, {filter: s => s.isActive});
-    if(!spawns.length) {
-        if((Game.time/40) % 10 == 0) console.log("Awaiting spawn in", room.name);
+
+    const allRoomSpawns = room.find(FIND_MY_SPAWNS);
+    const roomSpawns = allRoomSpawns.filter(s => s.isActive && !s.spawning);
+
+    // Don't try to defend rooms we're just passing through.
+    const isMine = room.controller && room.controller.my || room.find(FIND_MY_STRUCTURES) > 0 || room.find(FIND_MY_CREEPS) > 3;
+
+    const hostiles = room.find(FIND_HOSTILE_CREEPS, {filter: c => c.body.some(b => b.hits && SCARY_PARTS.includes(b.type))});
+    // Defenders sack in-room if there's nothing to attack, so we only want to
+    // leave standing ones for rooms without their own spawns...
+    let needDefense = isMine && hostiles.length > 0;
+    if(!needDefense && isMine && allRoomSpawns.length == 0) {
+      const existingDef = roleDefender.assigned(room.name).filter(c => c.ticksToLive > 300);
+      let wantDefs = 1;
+      if(local.defenseRooms && room.name in local.defenseRooms) {
+        wantDefs = local.defenseRooms[room.name];
+      }
+      needDefense = existingDef.length < wantDefs;
+      //console.log(`plan.room[${room}] existingDefs=${existingDef.length} < ${wantDefs}?`);
+    }
+    if(needDefense) {
+        if(Game.time % 20 == 0) console.log(`${room} needs defenses from: ${hostiles}`);
+        if(roomSpawns.length) {
+          if(roleDefender.spawn(roomSpawns[0], {}) == OK) roomSpawns.shift();
+        } else {
+          const allSpawns = Object.values(Game.spawns).filter(s => s.isActive && !s.spawning);
+          const [remSpawn, path] = pathUtil.macroClosest(room.name, allSpawns, {flipPath: true});
+          if(remSpawn != ERR_NO_PATH) {
+            const body = new Array(8).fill(MOVE).concat(new Array(2).fill(RANGED_ATTACK)).concat(new Array(1).fill(HEAL));
+            const ret = remSpawn.spawnCreep(body, `relo-defender-${room.name}-${Game.time}`, {
+              memory: relocator.setMem({roomPath: path}, room.name, roleDefender.ROLE)});
+            // Return early if we're saving up energy.
+            // XXX may end up making it harder to gather energy?
+            if(ret == ERR_NOT_ENOUGH_ENERGY) return ret;
+            console.log(`Spawning remote relo defender for ${room.name}: ${ret}`);
+          }
+        }
         return;
     }
-    var spawn = _.find(spawns, s => !s.spawning);
-    if(!spawn) { return }
-    var hostiles = room.find(FIND_HOSTILE_CREEPS, {filter: c => {
-        var body = _.groupBy(c.body, 'type');
-        if(body[ATTACK] || body[RANGED_ATTACK] || body[CLAIM]) return true;
-        return false;
-    }});
-    if(hostiles.length > 0) {
-        if(Game.time % 20 == 0) console.log(`${room} under attack: ${hostiles}`);
-        roleDefender.spawn(spawn, {});
+
+    if(!roomSpawns.length) {
+        if(room.controller && (Game.time/40) % 10 == 0) console.log("Awaiting spawn in", room.name);
         return;
     }
+
     // TODO(baptr): Only do this when room control level changes,
     // or scale out the time further.
     // XXX just splay this instead of the whole room?
     if(room.controller.level > (room.memory.level || 0) || splay.isTurn('room', room.name, Game.time/500)) {
-        planBuildings(spawn.pos, [STRUCTURE_EXTENSION, STRUCTURE_TOWER]);
+        planBuildings(roomSpawns[0].pos, [STRUCTURE_EXTENSION, STRUCTURE_TOWER]);
         planRoads(room);
         planMining(room);
         room.memory.level = room.controller.level;
     }
     
-    _.forEach(spawns, s => {
-        // TOOD(baptr): Let the spawn functions pick spawn so they don't have to 
-        // recalculate all the room stuff.
-        if(!s.spawning) spawnCreeps(s, room);
-    });
+    for(const s of roomSpawns) {
+      // TOOD(baptr): Let the spawn functions pick spawn so they don't have to 
+      // recalculate all the room stuff.
+      if(!s.spawning) spawnCreeps(s, room);
+    }
 },
 planRoads,
 };
@@ -219,7 +252,7 @@ function spawnCreeps(spawn, room) {
     if(spawn.spawning) return;
     
     // RCL 2 seems early enough to start trying to use storeUpgraders
-    if(room.energyAvailable == room.energyCapacityAvailable && room.energyAvailable > 500) {
+    if(room.energyAvailable >= room.energyCapacityAvailable*0.75 && room.energyAvailable > 500) {
         if(hauler.spawnCondition(room, numRole(hauler.ROLE))) {
             hauler.spawn(spawn);
         }

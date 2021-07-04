@@ -235,9 +235,12 @@ function findControllerContainer(room) {
 function findDest(creep) {
     var dest = Game.getObjectById(creep.memory.dest);
     if(dest) {
+      if(dest.store.getFreeCapacity() > 0) {
         // TODO(baptr): Check space? or do we want to travel anyway assuming
         // there will be space when we get there?
         return dest;
+      }
+      if(dest.room.storage && dest.room.storage.my) return dest.room.storage;
     }
     // XXX this won't work for remote haulers!
     dest = creep.room.storage;

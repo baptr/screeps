@@ -11,6 +11,15 @@ function renewCost(creep) {
 module.exports = {
 bodyCost,
 renewCost,
+bodyPower: function(creep, type, mult) {
+  let out = 0;
+  for(const b of creep.body) {
+    if(b.hits == 0) continue;
+    if(b.type != type) continue;
+    out += mult;
+  }
+  return out;
+},
 hasBody: function(creep, type) {
     var body = _.groupBy(creep.body, 'type');
     return body[type];
@@ -82,5 +91,24 @@ renew: function(creep, start=100, stop=600) {
         }
     }
     return false;
-}
+},
+flee: function(creep, minRange=4, swampCost=10) {
+  // TODO: If the chaser(s) are less fast, then swamps are preferred. If
+  // they're equal speed, finding paths that make them move through swamps
+  // while we don't let us break away...
+
+  // TODO: Split away from other fleeing friends so someone gets to survive.
+
+  // TODO: try to flee in a target direction maybe?
+  const baddies = creep.pos.findInRange(FIND_HOSTILE_CREEPS, minRange+1, {
+    filter: c => c.body.some(b => b.hits && SCARY_PARTS.includes(b.type))});
+  if(!baddies.length) return ERR_NOT_IN_RANGE;
+  const path = PathFinder.search(creep.pos, baddies.map(b => ({range: minRange, pos: b.pos})), {flee: true, maxCost: 100, swampCost});
+  if(path.path.length) {
+    return creep.move(creep.pos.getDirectionTo(path.path[0]));
+  }
+  return ERR_NO_PATH;
+},
 };
+
+const SCARY_PARTS = [ATTACK, RANGED_ATTACK];

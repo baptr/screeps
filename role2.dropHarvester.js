@@ -169,6 +169,9 @@ run: function(creep) {
         if(res.length) creep.pickup(res[0]);
       }
       break;
+    case ERR_NOT_OWNER:
+      if(Game.time % 20 == 0) console.log(`${creep.name} unable to harvest in ${creep.pos.roomName}: NOT OWNER`);
+      break;
     default:
       console.log(`${creep.name} unhandled harvest ret: ${ret}`);
     }

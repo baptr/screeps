@@ -1,26 +1,37 @@
+const local = require('local');
 /* TODOs:
    - Treat planned roads as cheaper during multiple passes.
 */
 
+function macroPath(srcRoom, dstRoom, badRooms=local.badRooms||[], badCost = Infinity) {
+  return Game.map.findRoute(srcRoom, dstRoom, {
+    routeCallback: name => {
+      if(badRooms.includes(name)) return badCost;
+      if(name.includes('0')) return 1;
+      return 3; // maybe even higher in season since there are so many swamps
+    }});
+}
+
 function roomCallback(roomName) {
     const room = Game.rooms[roomName];
-    var out = new PathFinder.CostMatrix();
-    if(!room) {
-        return out;
-    }
-    var obstacles = room.find(FIND_STRUCTURES).concat(room.find(FIND_CONSTRUCTION_SITES));
-    _.forEach(obstacles, s => {
-        if(OBSTACLE_OBJECT_TYPES.includes(s.structureType)) {
-            out.set(s.pos.x, s.pos.y, 255);
-        } else if(s.structureType == STRUCTURE_ROAD) {
-            out.set(s.pos.x, s.pos.y, 1);
-        }
-    });
+    if(!room) return undefined;
+
+    const out = new PathFinder.CostMatrix();
+    const buildings = room.find(FIND_STRUCTURES);
+    for(const s of buildings) {
+      if(OBSTACLE_OBJECT_TYPES.includes(s.structureType)) {
+        out.set(s.pos.x, s.pos.y, 255);
+      } else if(s.structureType == STRUCTURE_ROAD) {
+        out.set(s.pos.x, s.pos.y, 1);
+      } else if(s.structureType == STRUCTURE_RAMPART && !s.my) {
+        out.set(s.pos.x, s.pos.y, 255);
+      }
+    };
     return out;
 }
 
 module.exports = {
-roomCallback: roomCallback,
+roomCallback,
 swampCheck: function(src, dest, roomMatrix=null) {
     // XXX will break if this ever tries to span a room.
     // TODO(baptr): Presumably there could be cases where leaving the room
@@ -143,5 +154,58 @@ visPath: function(path) {
         }
         roomVis.line(prev, cur);
     }
-}
+},
+macroPath,
+macroMove: function(creep, pathMem='roomPath') {
+  const path = creep.memory[pathMem];
+  if(!path) {
+    console.log(`${creep.name} trying to macroMove with no memory[${pathMem}]`);
+    return ERR_NO_PATH;
+  }
+  let hop = path[0];
+  if(creep.room.name == hop.room) {
+    path.shift();
+    hop = path[0];
+    if(!hop) delete creep.memory[pathMem];
+  }
+  if(hop) {
+    const exit = creep.pos.findClosestByPath(hop.exit);
+    // TODO: Handle it being cheaper to leave the room and come back through a
+    // different entrance.
+    return creep.moveTo(exit, {visualizePathStyle: {}, reusePath: 50, maxRooms: 1});
+  }
+  return creep.moveTo(25, 25, {maxRooms: 1});
+},
+macroClosest: function(srcRoom, goals, opts={}) {
+    let goal = ERR_NO_PATH;
+    let bestPath;
+    for(const g of goals) {
+      const path = macroPath(srcRoom, g.pos.roomName, opts.badRooms, opts.badCost);
+      if(bestPath && path.length >= bestPath.length) continue;
+      bestPath = path;
+      goal = g;
+    }
+    if(bestPath && opts.flipPath) {
+      // [src], -down->mid, -down->close, -right->dest
+      // [dest], -left->close, -up->mid, -up->src
+      const len = bestPath.length;
+      const out = new Array(len);
+      bestPath.reverse().forEach((step, idx) => {
+        out[idx] = {exit: (step.exit + 4) % 8};
+        if(idx > 0) out[idx-1].room = step.room;
+      });
+      out[len-1].room = srcRoom;
+      bestPath = out;
+    }
+    return [goal, bestPath];
+},
+setMem: function(mem, spawnRoom, destRoom, opts={}) {
+    const path = macroPath(spawnRoom, destRoom, opts.badRooms, opts.badCost);
+    if(!path) {
+      console.log(`Unable to find remote path from ${spawnRoom} to ${destRoom}`);
+      return ERR_NO_PATH;
+    }
+    mem.roomPath = path;
+    return mem;
+},
 };

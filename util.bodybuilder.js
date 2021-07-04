@@ -6,6 +6,10 @@ class BodyBuilder {
         this.cost = util.bodyCost(base);
         this.energyRemaining = energyAvailable - this.cost;
     }
+
+    valid() {
+      return this.energyRemaining >= 0;
+    }
     
     extend(parts, limit=0) {
         let c = util.bodyCost(parts);

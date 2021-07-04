@@ -1,3 +1,5 @@
 local.js
 node_modules/
 Gruntfile.js
+.*.swp
+package-lock.json

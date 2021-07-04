@@ -117,6 +117,7 @@ mkBody: function(energyAvailable) {
     builder.extend([WORK, MOVE], limit=5);
     
     builder.extend([CARRY, MOVE]);
+    builder.extend([MOVE]);
     
     if(builder.count(WORK) < 2) return null;
     

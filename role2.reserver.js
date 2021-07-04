@@ -15,7 +15,7 @@ const ROLE = 'reserver';
 module.exports = {
 ROLE,
 assigned: function(targetRoom) {
-  return Object.values(Game.creeps).filter(c => c.role == ROLE && c.targetRoom == targetRoom);
+  return Object.values(Game.creeps).filter(c => c.memory.role == ROLE && c.memory.targetRoom == targetRoom);
 },
 spawn: function(spawn, targetRoom) {
     var body = new BodyBuilder([CLAIM, MOVE], spawn.room.energyAvailable);

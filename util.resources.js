@@ -71,9 +71,21 @@ function roomCtrlStores(room) {
     });
 }
 
+function roomResource(room, type=RESOURCE_ENERGY) {
+  let out = 0;
+  for(const s of room.find(FIND_STRUCTURES)) {
+    if(s.store) out += s.store[type];
+  }
+  for(const r of room.find(FIND_DROPPED_RESOURCES)) {
+    if(r.resourceType == type) out += r.amount;
+  }
+  return out
+}
+
 module.exports = {
     harvest,
     findSrc,
     resAvail,
     roomCtrlStores,
+    roomResource,
 };

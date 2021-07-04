@@ -4,7 +4,7 @@ const ROLES = ['harvester', 'defender', 'claimer', 'relocater', 'miner', 'bob'];
 const ROLE2S = ['bootstrapper', 'remoteHarvester', 'dropHarvester', 'builder',
                 'miner', 'combatant', 'dismantler', 'carrier', 'scout',
                 'hauler', 'storeUpgrader', 'recycle', 'reserver', 'healer',
-                'waiter', 'keeperKiller', 'delivery'];
+                'waiter', 'keeperKiller', 'delivery', 'roadWorker'];
 var role = {};
 _.forEach(ROLES, r => {
     role[r] = require('role.'+r);
@@ -22,7 +22,7 @@ _.forEach(ROLE2S, r => {
     }
 })
 
-const PLANNERS = ['claim', 'lab', 'attack', 'room'];
+const PLANNERS = ['claim', 'lab', 'attack', 'room', 'remoteHarvest'];
 var plan = {};
 _.forEach(PLANNERS, p => {plan[p] = require('plan.'+p)});
 
@@ -60,7 +60,7 @@ runPlanners: function() {
         plan.room.run(r);
     })
     
-    if(LOCALS.remoteHarvestRooms && LOCALS.remoteHarvestRooms.length && Game.time % 100 == 0) {
+    if(LOCALS.remoteHarvestRooms && LOCALS.remoteHarvestRooms.length && (Game.time%100) == 0) {
       const idx = (Game.time/100) % LOCALS.remoteHarvestRooms.length;
       const tgt = LOCALS.remoteHarvestRooms[idx];
       rmtHvst.run(tgt);
@@ -70,6 +70,9 @@ runPlanners: function() {
     plan.claim.test();
     if(LOCALS.ATTACK) {
       plan.attack.test();
+   }
+    for(const r of LOCALS.remoteHarvestRooms) {
+      plan.remoteHarvest.plan(r);
     }
 },
 cleanup: function() {
@@ -122,6 +125,9 @@ module.exports.loop = () => profiler.wrap(() => {
     if(!Memory.viz) Memory.viz = {};
     for(const roomName in Memory.viz) {
         new RoomVisual(roomName).import(Memory.viz[roomName]);
+    }
+    if(Memory.mapViz) {
+      Game.map.visual.import(Memory.mapViz);
     }
     if(Game.time % 20 == 0) {
         // Periodic cleanup
