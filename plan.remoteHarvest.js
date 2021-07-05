@@ -1,11 +1,13 @@
 const pathUtil = require('util.pathing');
 const splay = require('util.splay');
+const resUtil = require('util.resources');
 
 const scout = require('role2.scout');
 const roadWorker = require('role2.roadWorker');
 const keeperKiller = require('role2.keeperKiller');
 const reserver = require('role2.reserver');
 const dropHarvester = require('role2.dropHarvester');
+const hauler = require('role2.hauler');
 
 /*
 // Empirically, 3:1 strikes a good balance between path length and road maintenance cost.
@@ -126,44 +128,74 @@ function plan(roomName) {
   const room = Game.rooms[roomName];
   if(!room) {
     if(Game.time % 100 == 0) console.log(`Lost visibility to ${roomName} for remote harvesting`);
+    // TODO: probably better to use a combatant or a harvester, but scouts are cheap enough...
     if(!scout.exists(roomName)) scout.spawn(roomName);
     return
   }
 
+  const activeSpawns = Object.values(Game.spawns).filter(s => s.isActive);
+  const [anySpawn, anyPath] = pathUtil.macroClosest(roomName, activeSpawns.filter(s => !s.spawning), {flipPath: true});
+
+  // XXX make the returns of macroClosest easier to use.
+
   // TODO There's probably a better place for invader core elimination to live,
   // but harvested rooms are the most annoying so far.
   const blockers = room.find(FIND_HOSTILE_STRUCTURES);
-  if(blockers.length && keeperKiller.assigned(roomName) < 3) {
-    const ret = keeperKiller.spawn(Game.spawns.Home, roomName);
+  if(anyPath && blockers.length && keeperKiller.assigned(roomName) < 3) {
+    const ret = keeperKiller.spawn(anySpawn, roomName);
     if(ret != ERR_NOT_ENOUGH_ENERGY) console.log(`remoteHarvest.plan[${roomName}] trying to spawn keeperKiller for ${blockers}: ${ret}`);
     return ret;
   }
 
+  // These don't work very well if they have to travel a long way from the spawn.
+  const [spawn, closePath] = pathUtil.macroClosest(roomName, activeSpawns, {flipPath: true});
+  if(!closePath || spawn.spawning) return;
+
   // A: do we need to unreserve so we can use it?
-  // B: do we need to positively reserve to keep the workers busy?
   const ctrl = room.controller;
   const rsvs = reserver.assigned(roomName).filter(c => c.ticksToLive > 100);
   if(ctrl.reservation && ctrl.reservation.username != 'baptr') {
     if(rsvs.length < 2 && ctrl.reservation.ticksToEnd > 100) {
-      const spawn = Game.spawns.Home; // XXX make this dynamic (everywhere)
       const ret = reserver.spawn(spawn, roomName);
       if(ret != ERR_NOT_ENOUGH_ENERGY) console.log(`remoteHarvest.plan[${roomName}] spawning reserver over ${ctrl.reservation.username}: ${ret}`);
       return ret;
     }
   }
+
+  const harvesters = dropHarvester.assigned(roomName);
+
+  // B: do we need to positively reserve to keep the workers busy?
   if(rsvs.length < 2) {
+    // TODO: count work parts in harvesters, compare to base energy regen rate
+    // for the room, decide if we should reserve...
     // TODO: store this decision? (but update as workers get bigger..)
-    const harvesters = dropHarvester.assigned(roomName);
-    // XXX...
+    // XXX... finish decision/setup for reserving
   }
 
-  for(const src of room.find(FIND_SOURCES)) {
+  // Spawn roadWorker remote bootstrappers to do initial harvesting and build
+  // roads with it.
+  // TODO: plan out the roads automatically
+  const srcs = room.find(FIND_SOURCES);
+  for(const src of srcs) {
     const exist = roadWorker.assigned(src.pos);
     if(!exist.length) {
-      const ret = roadWorker.spawn(Game.spawns.Home, src.pos);
-      console.log(`remoteHarvest.plan[${roomName}] trying to spawn a new road worker for ${src}: ${ret}`);
-      return ret;
+      return roadWorker.spawn(spawn, src.pos);
     }
+  }
+
+  // XXX spawn drop harvesters...
+  if(harvesters.filter(c => c.ticksToLive > 100).length < srcs.length) {
+    return dropHarvester.spawnRemote(spawn, roomName);
+  }
+
+  // spawn dedicated haulers for overflow...
+  const hauls = hauler.assigned(roomName);
+  const dist = closePath.length;
+  const availRes = resUtil.roomResource(room);
+  if(hauls.length < dist*3 && (hauls.length+1) * 850 < availRes) {
+    const ret = hauler.spawnRemote(spawn, roomName);
+    console.log(`remoteHarvest[${roomName}] had ${hauls.length} haulers to go ${dist} away, for ${availRes} energy: ${ret}`);
+    return ret 
   }
 }
 

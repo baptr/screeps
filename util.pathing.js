@@ -157,6 +157,9 @@ visPath: function(path) {
 },
 macroPath,
 macroMove: function(creep, pathMem='roomPath') {
+  // XXX compare pathfinding the whole route with available rooms limited to the macroPath.
+  // Would be simpler, produce better paths, but probably slightly more expensive.
+  // How much can those paths be reused? Does the default reuse suffice?
   const path = creep.memory[pathMem];
   if(!path) {
     console.log(`${creep.name} trying to macroMove with no memory[${pathMem}]`);

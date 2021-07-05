@@ -26,7 +26,11 @@ function startBuilding(creep) {
   if(cs) {
     creep.memory.build = cs.id;
     if(creep.pos.getRangeTo(cs.pos) <= 3) {
-      return creep.build(cs);
+      const ret = creep.build(cs);
+      if(ret == OK) {
+        creep.memory.delivered += creep.getActiveBodyparts(WORK)*BUILD_POWER;
+      }
+      return ret;
     } else {
       return roadUtil.move(creep, cs.pos);
     }
@@ -47,6 +51,8 @@ function startBuilding(creep) {
           creep.memory.dump = true;
           return creep.moveTo(store);
         }
+      } else {
+        creep.memory.delivered += creep.store.energy;
       }
     }
 
@@ -59,7 +65,9 @@ function startBuilding(creep) {
     } else {
       // If this doesn't work and there's some energy left, maybe we'll repair
       // on the way.
-      creep.transfer(store, RESOURCE_ENERGY);
+      if(creep.transfer(store, RESOURCE_ENERGY) == OK) {
+        creep.memory.delivered += creep.store.energy;
+      }
       delete creep.memory.dump;
       creep.memory.building = false;
     }
@@ -68,12 +76,13 @@ function startBuilding(creep) {
 
 module.exports = {
 assigned: function(srcPos) {
-return Object.values(Game.creeps).filter(c => {
-  if(c.memory.role != ROLE) return false;
-    const target = c.memory.srcPos;
-    if(target.roomName != srcPos.roomName) return false;
-    return srcPos.isEqualTo(target.x, target.y);
-  });
+  // XXX this missed ones currently spawning. Could check Memory?
+  return Object.values(Game.creeps).filter(c => {
+    if(c.memory.role != ROLE) return false;
+      const target = c.memory.srcPos;
+      if(target.roomName != srcPos.roomName) return false;
+      return srcPos.isEqualTo(target.x, target.y);
+    });
 },
 spawn: function(spawn, srcPos) {
   const body = new BodyBuilder([], spawn.room.energyAvailable);
@@ -108,7 +117,11 @@ run: function(creep) {
         roadUtil.move(creep, site.pos);
       } else {
         // Return here to avoid also trying to repair this tick.
-        return creep.build(site);
+        const ret = creep.build(site);
+        if(ret == OK) {
+          creep.memory.delivered += creep.getActiveBodyparts(WORK)*BUILD_POWER;
+        }
+        return ret;
       }
     }
 
@@ -116,7 +129,9 @@ run: function(creep) {
     const repairPower = creepUtil.bodyPower(creep, WORK, REPAIR_POWER);
     const rep = creep.pos.findInRange(FIND_STRUCTURES, 3, {
       filter: s => s.structureType == STRUCTURE_ROAD && s.hits + repairPower <= s.hitsMax}).shift();
-    if(rep) creep.repair(rep);
+    if(rep) {
+      if(creep.repair(rep) == OK) creep.memory.delivered += repairPower;
+    }
     return OK;
   } else { // fill
     const rawPos = creep.memory.srcPos; // only ever the actual Source

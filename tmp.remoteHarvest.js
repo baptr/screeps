@@ -57,7 +57,7 @@ run: function(roomName) {
         const dist = Game.map.findRoute(destRoom, roomName).length;
         const availRes = resUtil.roomResource(room);
         console.log(`remoteHarvest(${roomName}) has ${hauls.length} haulers to go ${dist} away, for ${availRes} energy`);
-        if(hauls.length < dist && hauls.length * 750 < availRes) {
+        if(hauls.length < dist && (hauls.length+1) * 850 < availRes) {
             const spawn = spawns.shift();
             const ret = hauler.spawnRemote(spawn, roomName, destRoom);
             console.log(`${spawn} spawning more haulers: ${ret}`);

@@ -89,9 +89,8 @@ spawnCondition: function(room, numExisting) {
         // underplay them significantly.
         // TODO(baptr): Large wall banks are still going to blow this out.
         case STRUCTURE_RAMPART:
-            return 50 * (1 - s.hits/s.hitsMax);
         case STRUCTURE_WALL:
-            return 10 * (1 - s.hits/s.hitsMax);
+            return 50 * (1 - s.hits/s.hitsMax);
         default:
             return dmg;
         }

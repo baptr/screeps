@@ -138,6 +138,9 @@ const SWAMP_WEIGHT = 10;
 const PLAINS_WEIGHT = 2;
 const ROAD_WEIGHT = 1;
 
+function run() {
+}
+
 module.exports = {
   dumpRoom,
   test: function(iterations=1, dim=10, room='E28S12') {

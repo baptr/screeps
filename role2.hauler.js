@@ -1,15 +1,6 @@
 const BodyBuilder = require('util.bodybuilder');
 const resutil = require('util.resources');
 
-function findCtrlStore(room) {
-    const opts = room.controller.pos.findInRange(FIND_STRUCTURES, 4, {
-        filter: s => {return s.store && s.store.getFreeCapacity(RESOURCE_ENERGY) > 0}
-    });
-    if(!opts.length) return null;
-    const pref =  _.sortBy(opts, [s => s.store.energy])
-    return pref[0];
-}
-
 const ROLE = 'hauler';
 module.exports = {
 assigned: function(srcRoom) {
@@ -223,15 +214,6 @@ function findSrc(creep) {
     return src;
 }
 
-function findControllerContainer(room) {
-    const conts = room.controller.pos.findInRange(FIND_STRUCTURES, 4, {
-        filter: {structureType: STRUCTURE_CONTAINER}
-    });
-    if(conts.length) {
-        return conts[0];
-    }
-    return null;
-}
 function findDest(creep) {
     var dest = Game.getObjectById(creep.memory.dest);
     if(dest) {

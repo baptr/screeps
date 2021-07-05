@@ -7,8 +7,7 @@ const CONTROLLER_UPGRADE_RANGE = 3;
 
 function findSrc(room) {
     const opts = room.controller.pos.findInRange(FIND_STRUCTURES, CONTROLLER_UPGRADE_RANGE+1, {
-        filter: s => {return s.store && s.store.energy > 0;}
-    });
+        filter: s => s.store && s.store.energy > 0 && s.structureType != STRUCTURE_POWER_SPAWN});
     if(!opts.length) return null;
     const pref =  _.sortBy(opts, [s => -s.store.energy])
     return pref[0];

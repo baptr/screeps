@@ -75,6 +75,7 @@ spawnRemote: function(spawn, srcRoom, srcID=null) {
     }
     const body = new BodyBuilder([WORK, CARRY, MOVE], spawn.room.energyAvailable);
     body.extend([WORK, WORK, MOVE]);
+    body.extend([WORK, MOVE]);
     if(body.count(WORK) < 4) { // randomly chosen. TODO: math
       console.log(`Not worth remote dropHarvesting for ${body.count(WORK)} WORK at ${body.cost} energy`);
       return ERR_NOT_ENOUGH_ENERGY;
@@ -117,6 +118,23 @@ run: function(creep) {
     
     // In range...
     const cont = planContainer(creep, src);
+
+    if(cont && cont.hits < cont.hitsMax/4 && creep.store.energy) creep.repair(cont);
+
+    // Try to turtle if we're under attack
+    if(creep.hits < creep.hitsMax && creep.room.controller.my && creep.store.energy) {
+      const rampart = creep.pos.lookFor(LOOK_STRUCTURES).find(s => s.structureType == STRUCTURE_RAMPART);
+      if(rampart) {
+        creep.repair(rampart);
+      } else {
+        const cs = creep.pos.lookFor(LOOK_CONSTRUCTION_SITES).find(s => s.structureType == STRUCTURE_RAMPART);
+        if(cs) {
+          creep.build(cs);
+        } else {
+          creep.pos.createConstructionSite(STRUCTURE_RAMPART);
+        }
+      }
+    }
         
     var ret = creep.harvest(src);
     util.track(creep, 'harvest', ret);
@@ -164,6 +182,7 @@ run: function(creep) {
           if(rep) {
             creep.repair(rep);
           }
+          // TODO: build static ramparts, or turtle on demand...? :-/
         }
         const res = creep.pos.lookFor(LOOK_RESOURCES, {filter: {resourceType: RESOURCE_ENERGY}});
         if(res.length) creep.pickup(res[0]);

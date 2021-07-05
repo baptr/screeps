@@ -8,10 +8,12 @@ const hauler = require('role2.hauler');
 const storeUpgrader = require('role2.storeUpgrader');
 const remoteHarvester = require('role2.remoteHarvester');
 const relocator = require('role.relocater');
-const local = require('local');
+const powerLoader = require('role2.powerLoader');
 
+const local = require('local');
 const splay = require('util.splay');
 const pathUtil = require('util.pathing');
+const BodyBuilder = require('util.bodybuilder');
 
 /* TODOs:
  - Add additional spawners at some point to avoid spawn time bottlenecks.
@@ -154,13 +156,15 @@ run: function(room) {
     const roomSpawns = allRoomSpawns.filter(s => s.isActive && !s.spawning);
 
     // Don't try to defend rooms we're just passing through.
-    const isMine = room.controller && room.controller.my || room.find(FIND_MY_STRUCTURES) > 0 || room.find(FIND_MY_CREEPS) > 3;
+    const ctrl = room.controller;
+    const isMine = ctrl && (ctrl.my || (ctrl.reservation && ctrl.reservation.username == 'baptr') || room.find(FIND_MY_STRUCTURES) > 0 || room.find(FIND_MY_CREEPS) > 3);
 
     const hostiles = room.find(FIND_HOSTILE_CREEPS, {filter: c => c.body.some(b => b.hits && SCARY_PARTS.includes(b.type))});
     // Defenders sack in-room if there's nothing to attack, so we only want to
     // leave standing ones for rooms without their own spawns...
     let needDefense = isMine && hostiles.length > 0;
     if(!needDefense && isMine && allRoomSpawns.length == 0) {
+      // XXX base life check on distance
       const existingDef = roleDefender.assigned(room.name).filter(c => c.ticksToLive > 300);
       let wantDefs = 1;
       if(local.defenseRooms && room.name in local.defenseRooms) {
@@ -177,9 +181,10 @@ run: function(room) {
           const allSpawns = Object.values(Game.spawns).filter(s => s.isActive && !s.spawning);
           const [remSpawn, path] = pathUtil.macroClosest(room.name, allSpawns, {flipPath: true});
           if(remSpawn != ERR_NO_PATH) {
-            const body = new Array(8).fill(MOVE).concat(new Array(2).fill(RANGED_ATTACK)).concat(new Array(1).fill(HEAL));
-            const ret = remSpawn.spawnCreep(body, `relo-defender-${room.name}-${Game.time}`, {
-              memory: relocator.setMem({roomPath: path}, room.name, roleDefender.ROLE)});
+            const body = new BodyBuilder([MOVE, MOVE, MOVE, MOVE, MOVE, RANGED_ATTACK, HEAL], remSpawn.room.energyAvailable);
+            body.extend([MOVE, MOVE, MOVE, MOVE, MOVE, RANGED_ATTACK, RANGED_ATTACK]);
+            const ret = remSpawn.spawnCreep(body.body, `relo-defender-${room.name}-${Game.time}`, {
+              memory: relocator.setMem({roomPath: path, cost: body.cost}, room.name, roleDefender.ROLE)});
             // Return early if we're saving up energy.
             // XXX may end up making it harder to gather energy?
             if(ret == ERR_NOT_ENOUGH_ENERGY) return ret;
@@ -224,6 +229,8 @@ function couldSpawn(room, limit=1) {
 // creep if there are multiple spawns in a room. None of the enqueued changes
 // effect the checks for the next spawner in the caller's loop...
 function spawnCreeps(spawn, room) {
+    if(spawn.spawning) return;
+
     var creeps = room.find(FIND_MY_CREEPS);
     var kinds = _.groupBy(creeps, c => c.memory.role);
     var numRole = r => (kinds[r] || []).length;
@@ -231,25 +238,25 @@ function spawnCreeps(spawn, room) {
     // TODO(baptr): Make this more dynamic based on available harvest spots.
     if(numRole(bootstrapper.ROLE) > 3 && numRole(dropHarvester.ROLE) < 2) {
         dropHarvester.spawn(spawn);
+        if(spawn.spawning) return;
     }
-    if(spawn.spawning) return;
     
     // XXX super hack
     if(Game.time % 1500 == 840 && spawn.room.name == 'E16N27') {
         if(remoteHarvester.spawn(spawn, 'E15N27') == OK) return;
+        if(spawn.spawning) return;
     }
-    if(spawn.spawning) return;
     
     if(bootstrapper.spawnCondition(room, numRole(bootstrapper.ROLE))) {
         bootstrapper.spawn(spawn);
+        if(spawn.spawning) return;
     }
-    if(spawn.spawning) return;
     
     // XXX If this stops running every tick, this sort of delay tactic will fail horribly.
     if(Game.time % 100 == 0) { // bleh
         dropHarvester.spawn(spawn);
+        if(spawn.spawning) return;
     }
-    if(spawn.spawning) return;
     
     // RCL 2 seems early enough to start trying to use storeUpgraders
     if(room.energyAvailable >= room.energyCapacityAvailable*0.75 && room.energyAvailable > 500) {
@@ -278,8 +285,8 @@ function spawnCreeps(spawn, room) {
             // TODO(baptr): improve
             delete room.memory.needMiner;
         }
+        if(spawn.spawning) return;
     }
-    if(spawn.spawning) return;
     
     var bobNeeded = room.memory.needBob;
     if(bobNeeded && Game.time % 100 == 32) {
@@ -288,5 +295,11 @@ function spawnCreeps(spawn, room) {
         if(bob.spawn(spawn, bobNeeded.res, bobNeeded.src, bobNeeded.dest) == OK) {
             delete room.memory.needBob;
         }
+        if(spawn.spawning) return;
+    }
+
+    if(powerLoader.spawnCondition(room)) {
+        powerLoader.spawn(spawn);
+        if(spawn.spawning) return;
     }
 }
