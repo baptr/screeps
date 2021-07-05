@@ -85,10 +85,12 @@ spawn: function(spawn, extMem={}) {
 run: function(creep) {
     util.track(creep, 'alive');
 
+/*
     if(util.flee(creep, 6, 1) == OK) {
       console.log(`${creep.name} is running away from attackers`);
       return;
     }
+    */
 
     if(creep.carryCapacity == 0) {
       // XXX place (a) MOVE last so it can flee for help, or something?

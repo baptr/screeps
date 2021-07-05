@@ -46,10 +46,16 @@ run: function(creep) {
     case 2:
         creep.moveTo(ctrl);
     case 1:
+      if(ctrl.reservation && ctrl.reservation.username != 'baptr') {
+        if(creep.attackController(ctrl) == OK) {
+          creep.memory.delivered += creep.getActiveBodyparts(CLAIM);
+        }
+      } else {
         if(creep.reserveController(ctrl) == OK) {
             creep.memory.delivered += creep.getActiveBodyparts(CLAIM);
         }
-        break;
+      }
+      break;
     default:
         return creep.moveTo(ctrl);
     }

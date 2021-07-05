@@ -30,23 +30,46 @@ function startBuilding(creep) {
     } else {
       return roadUtil.move(creep, cs.pos);
     }
-  } else {
+  } else if(!creep.memory.dump) {
     // Start heading home, hopefully there's something to build in another room
     // along the way.
     const spawn = Game.getObjectById(creep.memory.spawn);
     if(!creep.pos.isNearTo(spawn)) {
       return roadUtil.move(creep, spawn);
     }
-    // Head back out, maybe repair along the way.
-    creep.transfer(spawn, RESOURCE_ENERGY);
+
+    if(creep.store.energy > 0) {
+      // Try to leave any energy that made it.
+      if(creep.transfer(spawn, RESOURCE_ENERGY) != OK) {
+        // If the spawn is full, try to dump in storage.
+        const store = creep.room.storage;
+        if(store) {
+          creep.memory.dump = true;
+          return creep.moveTo(store);
+        }
+      }
+    }
+
+    // Head back out.
     creep.memory.building = false;
+  } else {
+    const store = creep.room.storage;
+    if(store && !creep.pos.isNearTo(store)) {
+      return creep.moveTo(store);
+    } else {
+      // If this doesn't work and there's some energy left, maybe we'll repair
+      // on the way.
+      creep.transfer(store, RESOURCE_ENERGY);
+      delete creep.memory.dump;
+      creep.memory.building = false;
+    }
   }
 }
 
 module.exports = {
 assigned: function(srcPos) {
-  return Object.values(Game.creeps).filter(c => {
-    if(c.memory.role != ROLE) return false;
+return Object.values(Game.creeps).filter(c => {
+  if(c.memory.role != ROLE) return false;
     const target = c.memory.srcPos;
     if(target.roomName != srcPos.roomName) return false;
     return srcPos.isEqualTo(target.x, target.y);

@@ -55,8 +55,9 @@ run: function(roomName) {
 
         const hauls = hauler.assigned(roomName);
         const dist = Game.map.findRoute(destRoom, roomName).length;
-        console.log(`remoteHarvest(${roomName}) has ${hauls.length} haulers to go ${dist} away`);
-        if(hauls.length < dist*2 && hauls.length * 500 < resUtil.roomResource(room)) {
+        const availRes = resUtil.roomResource(room);
+        console.log(`remoteHarvest(${roomName}) has ${hauls.length} haulers to go ${dist} away, for ${availRes} energy`);
+        if(hauls.length < dist && hauls.length * 750 < availRes) {
             const spawn = spawns.shift();
             const ret = hauler.spawnRemote(spawn, roomName, destRoom);
             console.log(`${spawn} spawning more haulers: ${ret}`);
@@ -66,10 +67,9 @@ run: function(roomName) {
 
         // TODO: Calculate whether we'll drain the unreserved source fast
         // enough to warrant this.
-        /*
         const ctrl = room.controller;
         const rsvs = reserver.assigned(roomName).filter(c => c.ticksToLive > 100);
-        if(!rsvs.length && (!ctrl.reservation || ctrl.reservation.ticksToEnd < 100)) {
+        if(!rsvs.length && (!ctrl.reservation || ctrl.reservation.uername != 'baptr' || ctrl.reservation.ticksToEnd < 100)) {
             const spawn = spawns.shift();
             const ret = reserver.spawn(spawn, roomName);
             // XXX Debugging how I ended up with 3 reservers.
@@ -77,7 +77,6 @@ run: function(roomName) {
             if(ret != OK) spawns.push(spawn);
             if(spawns.length == 0) return ret;
         }
-        */
 
         // TODO: don't necessarily need a harvester yet if road workers are keeping the sources empty..
         // TODO: or even to spawn more (yet) if there's already a backlog of energy around...

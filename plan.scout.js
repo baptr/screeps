@@ -14,9 +14,15 @@
 }
 */
 function dumpRoom(room) {
-  if(!room instanceof Room) {
-    room = Game.rooms[room];
+  if(!(room instanceof Room)) {
+    const obj = Game.rooms[room];
+    if(!obj) console.log(`scout.dumpRoom(${room}): room not visible`);
+    room = obj;
   }
+  if(!room) {
+    return ERR_NOT_FOUND;
+  }
+
   const start = Game.cpu.getUsed();
   const out = {lastSeen: Game.time};
 
@@ -102,19 +108,23 @@ function dumpRoom(room) {
     }
   }
 
+  let set = 0;
   for(const s of structs) {
     if(OBSTACLE_OBJECT_TYPES.includes(s.structureType)) {
       matrix.set(s.pos.x, s.pos.y, OBSTACLE_WEIGHT);
+      set++;
     } else if(s instanceof StructureRampart && !s.my) {
       matrix.set(s.pos.x, s.pos.y, RAMPART_WEIGHT);
+      set++;
     } else if(s instanceof StructureRoad) {
       if(matrix.get(s.pos.x, s.pos.y) != RAMPART_WEIGHT) {
         matrix.set(s.pos.x, s.pos.y, ROAD_WEIGHT);
+        set++;
       }
     }
   }
-  out.rawMatrix = matrix.serialize();
-  //console.log(`dumpRoom(${room.name}) took ${Game.cpu.getUsed() - start}ms. rawMatrix is ${JSON.stringify(out.rawMatrix).length} chars. vs ${matrix._bits.length} _bits`);
+  if(set) out.rawMatrix = matrix.serialize();
+  console.log(`dumpRoom(${room.name}) took ${Game.cpu.getUsed() - start}ms. rawMatrix is ${JSON.stringify(out.rawMatrix).length} chars. vs ${matrix._bits.length} _bits`);
 
   return out;
 }

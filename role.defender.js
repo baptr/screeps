@@ -92,6 +92,7 @@ module.exports = {
       }
       if(!enemy) {
         const spawn = creep.pos.findClosestByPath(FIND_MY_SPAWNS);
+        // TODO: Only keep the N~=3? best, and move them out of the way.
         if(spawn && !local.defenseRooms[creep.room.name]) {
           creep.say("🔙 to dust!");
           creep.moveTo(spawn);
