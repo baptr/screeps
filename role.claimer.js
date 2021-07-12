@@ -38,31 +38,28 @@ module.exports = {
 
       if(!body.valid()) return ERR_NOT_ENOUGH_ENERGY;
         
-      const macroPath = pathUtil.macroPath(spawn.pos.roomName, room);
-      if(!macroPath) {
+      const macroPath = pathUtil.macroPath(spawn.pos.roomName, room, undefined, undefined, 1);
+      if(macroPath == ERR_NO_PATH) {
         console.log(`Unable to spawn claimer for room ${room}, no macro path to goal`);
         return ERR_NO_PATH;
       }
 
       // TODO: decide whether it's worth serializing and using the full path
-      /*
       const macroRooms = macroPath.map(e => e.room).concat([spawn.pos.roomName]);
       if(!destPos) destPos = new RoomPosition(25, 25, room);
       const path = PathFinder.search(spawn.pos, destPos, {
         maxOps: 10000,
+        swampCost: 1,
+        plainCost: 1,
+        maxCost: 590, // Leave a little time to travel to the controller and actually claim.
         roomCallback: name => macroRooms.includes(name) ? pathUtil.roomCallback : false});
       if(path.incomplete) {
         console.log(`Unable to spawn claimer for room ${room}, no low level path to goal`);
         return ERR_NO_PATH;
       }
+      const exitPath = pathUtil.exitPath(path);
 
-      // TODO: Probably need custom de/serialization to do this across rooms.
-      const sPath = Room.serializePath(path.path.map((s, idx, path) => ({
-        x: s.x, y: s.y, direction: s.getDirectionTo(path[idx+1])
-      })).slice(0, -1));
-      */
-
-      const mem = {role: ROLE, targetRoom: room, roomPath: macroPath};
+      const mem = {role: ROLE, targetRoom: room, exitPath};
 
       return spawn.spawnCreep(body.sort(), `${ROLE}-${room}`, {memory: mem});
     },
@@ -72,9 +69,7 @@ module.exports = {
       // back in to spot it again, and get stuck on the border.
       const targetRoom = creep.memory.targetRoom;
 
-      if(creep.memory.roomPath) {
-        return pathUtil.macroMove(creep)
-      }
+      if(creep.memory.exitPath) return pathUtil.macroMove(creep, {plainCost: 1, swampCost: 1});
 
       var room = Game.rooms[targetRoom];
       if(room) {

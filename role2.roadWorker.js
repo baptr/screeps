@@ -99,9 +99,9 @@ spawn: function(spawn, srcPos) {
   }});
 },
 run: function(creep) {
-  if(creep.memory.filling && creep.store.getFreeCapacity() == 0) {
+  if(!creep.memory.building && creep.store.getFreeCapacity() == 0) {
     creep.memory.building = true;
-  } else if(!creep.memory.filling && creep.store.energy == 0) {
+  } else if(creep.memory.building && creep.store.energy == 0) {
     creep.memory.building = false;
   }
 

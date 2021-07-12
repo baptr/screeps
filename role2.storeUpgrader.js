@@ -38,6 +38,8 @@ spawn: function(spawn, mem={}) {
     }
     
     var body = new BodyBuilder([WORK, CARRY, MOVE], room.energyAvailable);
+    // TODO size these more dynamically. 11 feels like it's often too much,
+    // especially if multiple spawn.
     body.extend([WORK], limit=10);
     body.extend([MOVE], limit=8); // XXX worth it?
     
@@ -47,6 +49,7 @@ spawn: function(spawn, mem={}) {
     mem.role = ROLE;
     mem.cost = body.cost;
     mem.src = src.id;
+    mem.life = {};
     const name =  `${ROLE}-${room.name}-${Game.time}`;
     const ret = spawn.spawnCreep(body.sort([MOVE, WORK, CARRY]), name, {memory: mem});
     if(ret != OK) {
@@ -55,6 +58,7 @@ spawn: function(spawn, mem={}) {
     return ret;
 },
 run: function(creep) {
+    util.track(creep, 'alive');
     let src = Game.getObjectById(creep.memory.src);
     const ctrl = creep.room.controller;
     if(!src || !ctrl.my) {
@@ -67,10 +71,11 @@ run: function(creep) {
     const delivery = creep.getActiveBodyparts(WORK)*UPGRADE_CONTROLLER_POWER;
     switch(ret) {
     case OK:
+        util.track(creep, 'upgrade');
         creep.memory.delivered += delivery;
         break;
     case ERR_NOT_IN_RANGE:
-        creep.moveTo(ctrl);
+        util.track(creep, 'move', creep.moveTo(ctrl));
         return;
     case ERR_NOT_ENOUGH_ENERGY:
         // filling is below
@@ -82,7 +87,7 @@ run: function(creep) {
     if(!link && !creep.memory.hasOwnProperty('link')) {
         if(creep.room.memory.links) {
             link = Game.getObjectById(creep.room.memory.links.controller);
-            creep.moveTo(link);
+            util.track(creep, 'move', creep.moveTo(link));
         } else {
             link = {};
         }
@@ -101,6 +106,7 @@ run: function(creep) {
             const mv = Math.min(creep.carryCapacity/2, link.energy);
             let transferRet = creep.transfer(src, RESOURCE_ENERGY, mv-delivery);
             let drawRet = creep.withdraw(link, RESOURCE_ENERGY, mv);
+            util.track(creep, 'linkTap', drawRet);
             // console.log(`${creep.name} had ${creep.carry.energy} energy, ${delivery} delivery. ${mv} mv. upgradeRet: ${ret} drawRet: ${drawRet} transferRet: ${transferRet}`);
             return;
         }
@@ -117,14 +123,15 @@ run: function(creep) {
     ret = creep.withdraw(src, RESOURCE_ENERGY, delivery);
     switch(ret) {
     case OK:
+        util.track(creep, 'withdraw');
         break;
     case ERR_NOT_IN_RANGE:
         // TODO(baptr): Should be more careful about positioning at the start
         // so this can't happen.
-        creep.moveTo(src);
+        util.track(creep, 'move', creep.moveTo(src));
         return
     case ERR_NOT_ENOUGH_RESOURCES:
-        creep.withdraw(src, RESOURCE_ENERGY);
+        util.track(creep, 'withdraw', creep.withdraw(src, RESOURCE_ENERGY));
         break;
     }
 },

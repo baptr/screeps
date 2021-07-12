@@ -5,12 +5,15 @@ const ROLE = 'bankBuster';
 
 module.exports = {
   ROLE,
+  assigned: function(roomName) {
+    return Object.values(Game.creeps).filter(c => c.memory.role == ROLE && c.memory.targetRoom == roomName);
+  },
   spawn: function(spawn, targetRoom) {
     const body = new BodyBuilder([], spawn.room.energyAvailable);
     body.extend([MOVE, RANGED_ATTACK]);
     body.extend([MOVE]);
 
-    if(body.count(RANGED_ATTACK) < 5) return ERR_NOT_ENOUGH_ENERGY;
+    if(body.count(RANGED_ATTACK) < 3) return ERR_NOT_ENOUGH_ENERGY;
 
     return spawn.spawnCreep(body.sort(), `${ROLE}-${spawn.room.name}-${Game.time}`, {memory: {
       role: ROLE,
@@ -21,6 +24,8 @@ module.exports = {
   },
   run: function(creep) {
     util.track(creep, 'alive');
+
+    if(creep.room.find(FIND_FLAGS).find(f => f.name == 'wait')) return;
 
     // XXX Look for/shoot back at nearby enemies on the way.
 
@@ -35,12 +40,18 @@ module.exports = {
         target = creep.pos.findClosestByRange(FIND_HOSTILE_STRUCTURES);
       }
       if(!target) {
+        // For broken banks, maybe flee the resources but stay closer by?
         return util.track(creep, 'idle move', creep.moveTo(25, 25));
       }
     }
-    creep.moveTo(target, {range: 2});
-    if(creep.pos.inRangeTo(target, 4)) {
-      return util.track(creep, 'ranged_attack', creep.rangedAttack(target));
+
+    // TODO: Make space for melee replacements to get through
+    const range = creep.pos.getRangeTo(target);
+    if(range > 3) creep.moveTo(target, {range: 3});
+    if(range <= 4) {
+      const ret = util.track(creep, 'ranged_attack', creep.rangedAttack(target));
+      if(ret == OK) creep.memory.delivered += creep.getActiveBodyparts(RANGED_ATTACK)*RANGED_ATTACK_POWER;
+      return ret
     }
   },
 };

@@ -26,8 +26,7 @@ spawn: function(spawn) {
     builder.extend([WORK, WORK, MOVE], limit=(HARVESTER_WORKS - builder.count(WORK))/2);
     if(builder.count(WORK) < 3) builder.extend([WORK], limit=1);
     builder.extend([CARRY, MOVE], limit=1);
-    builder.extend([WORK, WORK, MOVE]);
-    builder.extend([WORK]);
+    builder.extend([WORK], limit=1);
     builder.sort();
     
     // TODO(baptr): Base on available locations near the spawn, and total room tier.
@@ -77,7 +76,6 @@ spawnRemote: function(spawn, srcRoom, srcID=null) {
     body.extend([WORK, WORK, MOVE]);
     body.extend([WORK, MOVE]);
     if(body.count(WORK) < 4) { // randomly chosen. TODO: math
-      console.log(`Not worth remote dropHarvesting for ${body.count(WORK)} WORK at ${body.cost} energy`);
       return ERR_NOT_ENOUGH_ENERGY;
     }
     const name = `${ROLE}-${srcRoom}-${Game.time}`;

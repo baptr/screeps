@@ -3,12 +3,66 @@ const local = require('local');
    - Treat planned roads as cheaper during multiple passes.
 */
 
-function macroPath(srcRoom, dstRoom, badRooms=local.badRooms||[], badCost = Infinity) {
+function longPath(srcPos, dstPos, opts={}) {
+  opts = Object.assign({}, {range: 1, cache: true, plainCost: 1, swampCost: 5, maxCost: CREEP_LIFE_TIME, maxOps: 10000}, opts);
+  let cacheKey;
+  if(opts.cache) {
+    if(!global.longPath) {
+      console.log("Lost longPath cache, initializing");
+      global.longPath = {};
+    }
+    cacheKey = `${srcPos.roomName}:${srcPos.x},${srcPos.y}-${dstPos.roomName}:${dstPos.x},${dstPos.y}:${opts.plainCost},${opts.swampCost}`;
+    // TTL, pruning?
+    if(global.longPath[cacheKey]) return global.longPath[cacheKey];
+  }
+  let macro = opts.macroPath;
+  if(!macro) {
+    macro = macroPath(srcPos.roomName, dstPos.roomName, undefined, undefined, opts.swampCost);
+    if(macro == ERR_NO_PATH) {
+      if(opts.cache) global.longPath[cacheKey] = ERR_NO_PATH;
+      return ERR_NO_PATH;
+    }
+  }
+  const rooms = macro.map(step => step.room).concat(srcPos.roomName);
+  const path = PathFinder.search(srcPos, {pos: dstPos, range: opts.range}, {
+    maxCost: opts.maxCost,
+    maxOps: opts.maxOps,
+    plainCost: opts.plainCost,
+    swampCost: opts.swampCost,
+    // TODO: use scouted/visible matricies?
+    roomCallback: name => rooms.includes(name) ? undefined : false,
+  });
+  if(opts.cache) {
+    global.longPath[cacheKey] = path;
+  }
+  return path;
+}
+
+function travelCost(creep) {
+  // TODO: Handle MOVE/CARRY boosts.
+  // TODO: Better planning for laden/unladen.
+  let weight = Math.ceil(creep.store.getUsedCapacity() / CARRY_CAPACITY)
+  let strength = 0;
+  for(const b of creep.body) {
+    if(b.hits == 0) continue;
+    if(b.type == MOVE) {
+      strength += 2;
+    } else if(b.type != CARRY) {
+      weight++;
+    }
+  }
+  return {
+    plainCost: Math.max(Math.ceil(2*weight/strength), 1),
+    swampCost: Math.max(Math.ceil(5*weight/strength), 1),
+  };
+}
+
+function macroPath(srcRoom, dstRoom, badRooms=local.badRooms||[], badCost=Infinity, swampCost=3) {
   return Game.map.findRoute(srcRoom, dstRoom, {
     routeCallback: name => {
       if(badRooms.includes(name)) return badCost;
       if(name.includes('0')) return 1;
-      return 3; // maybe even higher in season since there are so many swamps
+      return swampCost; // maybe even higher in season since there are so many swamps
     }});
 }
 
@@ -156,28 +210,44 @@ visPath: function(path) {
     }
 },
 macroPath,
-macroMove: function(creep, pathMem='roomPath') {
+macroMove: function(creep, moveOpts = {}) {
   // XXX compare pathfinding the whole route with available rooms limited to the macroPath.
-  // Would be simpler, produce better paths, but probably slightly more expensive.
-  // How much can those paths be reused? Does the default reuse suffice?
-  const path = creep.memory[pathMem];
-  if(!path) {
-    console.log(`${creep.name} trying to macroMove with no memory[${pathMem}]`);
-    return ERR_NO_PATH;
+  // Or maybe always path 2 rooms ahead?
+  const roomPath = creep.memory.roomPath;
+  if(roomPath) { // XXX deprecated
+    let hop = roomPath[0];
+    if(creep.room.name == hop.room) {
+      roomPath.shift();
+      hop = roomPath[0];
+      if(!hop) delete creep.memory.roomPath;
+    }
+    if(hop) {
+      const exit = creep.pos.findClosestByPath(hop.exit);
+      // TODO: Handle it being cheaper to leave the room and come back through a
+      // different entrance.
+      return creep.moveTo(exit, Object.assign({visualizePathStyle: {}, reusePath: 50, maxRooms: 1}, moveOpts));
+    }
+    return creep.moveTo(25, 25, Object.assign({maxRooms: 1}, moveOpts));
   }
-  let hop = path[0];
-  if(creep.room.name == hop.room) {
-    path.shift();
-    hop = path[0];
-    if(!hop) delete creep.memory[pathMem];
+
+  const exitPath = creep.memory.exitPath;
+  if(exitPath) {
+    let hop = exitPath[0];
+    if(creep.pos.roomName == hop.roomName) {
+      exitPath.shift();
+      hop = exitPath[0];
+      if(!hop) delete creep.memory.exitPath;
+    }
+    if(hop) {
+      return creep.moveTo(new RoomPosition(hop.x, hop.y, hop.roomName), 
+        Object.assign({visualizePathStyle: {}, reusePath: 50, maxRooms: 1}, moveOpts));
+    }
+    console.log(`${creep.name} arrived in ${creep.pos.roomName} with ${creep.ticksToLive} ticks remaining!`);
+    return creep.moveTo(25, 25, Object.assign({maxRooms: 1}, moveOpts));
   }
-  if(hop) {
-    const exit = creep.pos.findClosestByPath(hop.exit);
-    // TODO: Handle it being cheaper to leave the room and come back through a
-    // different entrance.
-    return creep.moveTo(exit, {visualizePathStyle: {}, reusePath: 50, maxRooms: 1});
-  }
-  return creep.moveTo(25, 25, {maxRooms: 1});
+
+  console.log(`${creep.name} trying to macroMove with no stored path`);
+  return ERR_NO_PATH;
 },
 macroClosest: function(srcRoom, goals, opts={}) {
     let goal = ERR_NO_PATH;
@@ -202,6 +272,10 @@ macroClosest: function(srcRoom, goals, opts={}) {
     }
     return [goal, bestPath];
 },
+exitPath: function(fullPath) {
+  const path = fullPath.path;
+  return path.filter(pos => pos.x == 0 || pos.x == 49 || pos.y == 0 || pos.y == 49).concat(path[path.length-1]);
+},
 setMem: function(mem, spawnRoom, destRoom, opts={}) {
     const path = macroPath(spawnRoom, destRoom, opts.badRooms, opts.badCost);
     if(!path) {
@@ -211,4 +285,6 @@ setMem: function(mem, spawnRoom, destRoom, opts={}) {
     mem.roomPath = path;
     return mem;
 },
+travelCost,
+longPath,
 };

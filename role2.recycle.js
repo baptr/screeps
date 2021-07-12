@@ -16,7 +16,7 @@ run: function(creep) {
   const spawn = Game.getObjectById(creep.memory.spawn);
   if(!spawn) {
     console.log(`${creep.name} has no recycle dest, giving up`);
-    creep.suicide();
+    creep.say("lost");
   }
   if(!creep.pos.isNearTo(spawn)) {
     creep.moveTo(spawn)

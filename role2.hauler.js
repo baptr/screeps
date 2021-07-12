@@ -1,5 +1,6 @@
 const BodyBuilder = require('util.bodybuilder');
 const resutil = require('util.resources');
+const util = require('util.creep');
 
 const ROLE = 'hauler';
 module.exports = {
@@ -30,7 +31,7 @@ spawn: function(spawn, dest=false) {
     if(body.count(CARRY) < 3) return false;
     
     // TODO(baptr): Allow some specialization?
-    var mem = {role: ROLE, cost: body.cost, dest: dest.id};
+    var mem = {role: ROLE, cost: body.cost, dest: dest.id, life: {}};
     const name = `${ROLE}-${room.name}-${Game.time}`;
     const ret = spawn.spawnCreep(body.body, name, {memory: mem});
     if(ret != OK) {
@@ -44,7 +45,7 @@ spawnRemote: function(spawn, remoteRoom, destRoom=null) {
     if(!storage) return ERR_RCL_NOT_ENOUGH;
 
     var body = new BodyBuilder([], spawn.room.energyAvailable);
-    body.extend([CARRY, MOVE]);
+    body.extend([CARRY, MOVE], limit=15);
     
     if(body.count(CARRY) < 5) return ERR_NOT_ENOUGH_ENERGY;
     
@@ -53,6 +54,7 @@ spawnRemote: function(spawn, remoteRoom, destRoom=null) {
         remoteRoom,
         dest: storage.id,
         cost: body.cost,
+        life: {},
     }
     const name = `${ROLE}-${storage.room.name}-${remoteRoom}-${Game.time}`;
     const ret = spawn.spawnCreep(body.body, name, {memory: mem});
@@ -64,6 +66,7 @@ spawnRemote: function(spawn, remoteRoom, destRoom=null) {
 // TODO(baptr): In controlled rooms, leave some dropHarvested energy near the
 // source for other types.
 run: function(creep) {
+    util.track(creep, 'alive');
     if(!_.sum(creep.carry)) creep.memory.filling = true;
 
     if(creep.memory.filling) {
@@ -73,15 +76,16 @@ run: function(creep) {
         if(!src) {
             // If there's no where else to draw from, take it home.
             if(creep.carry.energy) creep.memory.filling = false;
+            if(creep.memory.remoteRoom && creep.room.name == creep.memory.remoteRoom) creep.moveTo(15, 15);
             return false;
         }
         if(!creep.pos.inRangeTo(src, 1)) {
-            creep.moveTo(src);
-            return
+            return util.track(creep, 'move', creep.moveTo(src))
         }
         let ret;
         if(src instanceof Resource) {
-            ret = creep.pickup(src);
+            ret = util.track(creep, 'pickup', creep.pickup(src));
+            creep.move(BOTTOM_RIGHT);
         } else {
             ret = ERR_NOT_ENOUGH_RESOURCES;
             _.forEach(src.store, (v, t) => {
@@ -90,6 +94,7 @@ run: function(creep) {
                     return false;
                 }
             })
+            util.track(creep, 'withdraw', ret);
         }
         switch(ret) {
         case OK:
@@ -117,8 +122,7 @@ run: function(creep) {
     var dest = findDest(creep);
     if(!dest) return false;
     if(!creep.pos.inRangeTo(dest.pos, 1)) {
-        creep.moveTo(dest);
-        return
+        return util.track(creep, 'haul', creep.moveTo(dest));
     }
     let ret = ERR_NOT_ENOUGH_RESOURCES;
     var resType;
@@ -129,6 +133,7 @@ run: function(creep) {
             return false;
         }
     })
+    util.track(creep, 'transfer', ret);
     switch(ret) {
     case OK:
         // Hard to be accurate, so let's just be quick.
@@ -217,12 +222,19 @@ function findSrc(creep) {
 function findDest(creep) {
     var dest = Game.getObjectById(creep.memory.dest);
     if(dest) {
-      if(dest.store.getFreeCapacity() > 0) {
+      // Hack to not wait around slowly draining to a basically full but in use container.
+      if(dest.store.getFreeCapacity() >= creep.store.getUsedCapacity()) {
         // TODO(baptr): Check space? or do we want to travel anyway assuming
         // there will be space when we get there?
         return dest;
       }
       if(dest.room.storage && dest.room.storage.my) return dest.room.storage;
+      for(const spawn of dest.room.find(FIND_MY_SPAWNS)) {
+        const cont = spawn.pos.findClosestByRange(FIND_STRUCTURES, {filter: s => s.store && s.store.getFreeCapacity(RESOURCE_ENERGY)});
+        if(cont) {
+          return cont;
+        }
+      }
     }
     // XXX this won't work for remote haulers!
     dest = creep.room.storage;

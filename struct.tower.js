@@ -29,6 +29,10 @@ run: function(tower) {
         } else {
             delete tower.memory.target;
         }
+        const pc = tower.pos.findClosestByRange(FIND_MY_POWER_CREEPS, {filter: pc => pc.hits < pc.hitsMax});
+        if(pc) {
+          return tower.heal(pc);
+        }
         const friend = tower.pos.findClosestByRange(FIND_MY_CREEPS, {filter: c => c.hits < c.hitsMax});
         if(friend) {
             return tower.heal(friend);

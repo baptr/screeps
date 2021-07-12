@@ -5,7 +5,7 @@ const ROLE = 'keeperKiller';
 module.exports = {
 ROLE,
 assigned: function(roomName) {
-  return Object.values(Game.creeps).filter(c => c.role == ROLE && c.destRoom == roomName);
+  return Object.values(Game.creeps).filter(c => c.memory.role == ROLE && c.memory.destRoom == roomName);
 },
 spawn: function(spawn, destRoom) {
     builder = new BodyBuilder([], spawn.room.energyAvailable);
@@ -32,8 +32,10 @@ run: function(creep) {
       creep.heal(creep);
     } else {
       const friend = creep.pos.findInRange(FIND_MY_CREEPS, 1, {filter: c => c.hits < c.hitsMax}).shift();
-      if(friend) creep.heal(frien);
+      if(friend) creep.heal(friend);
     }
+
+    if(creep.room.find(FIND_FLAGS).find(f => f.name == 'wait')) return;
 
     let target = Game.getObjectById(creep.memory.target);
     if(!target) {
@@ -51,7 +53,9 @@ run: function(creep) {
     }
     util.track(creep, 'advance', creep.moveTo(target));
     if(creep.pos.inRangeTo(target, 2)) {
-        return util.track(creep, 'attack', creep.attack(target));
+        const ret = util.track(creep, 'attack', creep.attack(target));
+        if(ret == OK) creep.memory.delivered += creep.getActiveBodyparts(ATTACK)*ATTACK_POWER;
+        return ret;
     }
 }
 };

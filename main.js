@@ -5,7 +5,7 @@ const ROLE2S = ['bootstrapper', 'remoteHarvester', 'dropHarvester', 'builder',
                 'miner', 'combatant', 'dismantler', 'carrier', 'scout',
                 'hauler', 'storeUpgrader', 'recycle', 'reserver', 'healer',
                 'waiter', 'keeperKiller', 'delivery', 'roadWorker', 'bankBuster',
-                'powerLoader'];
+                'powerLoader', 'bother'];
 var role = {};
 _.forEach(ROLES, r => {
     role[r] = require('role.'+r);
@@ -23,7 +23,7 @@ _.forEach(ROLE2S, r => {
     }
 })
 
-const PLANNERS = ['claim', 'lab', 'attack', 'room', 'remoteHarvest', 'power'];
+const PLANNERS = ['claim', 'lab', 'attack', 'room', 'remoteHarvest', 'power', 'scout', 'safemode'];
 var plan = {};
 _.forEach(PLANNERS, p => {plan[p] = require('plan.'+p)});
 
@@ -35,7 +35,7 @@ const UTILS = ['creep', 'pathing', 'stats', 'splay'];
 var util = {};
 _.forEach(UTILS, u => {util[u] = require('util.'+u)});
 
-const rmtHvst = require('tmp.remoteHarvest');
+const opsPower = require('pc.operator');
 
 const profiler = require('screeps-profiler');
 
@@ -59,15 +59,13 @@ const main = {
 runPlanners: function() {
     _.forEach(Game.rooms, r => {
         plan.room.run(r);
+        if(plan.safemode.check(r)) {
+          const ret = r.controller.activateSafeMode();
+          console.log(`Activating safemode in ${r.name} at ${Game.time} = ${ret}`);
+        }
     })
-    
-    /*
-    if(LOCALS.remoteHarvestRooms && LOCALS.remoteHarvestRooms.length && (Game.time%100) == 0) {
-      const idx = (Game.time/100) % LOCALS.remoteHarvestRooms.length;
-      const tgt = LOCALS.remoteHarvestRooms[idx];
-      rmtHvst.run(tgt);
-    }
-    */
+
+    plan.scout.update();
 
     plan.lab.test();
     plan.claim.test();
@@ -80,6 +78,9 @@ runPlanners: function() {
 
     for(const r of LOCALS.powerRooms) {
       plan.power.run(r);
+    }
+    if(Game.flags.Power && !LOCALS.powerRooms.includes(Game.flags.Power.pos.roomName)) {
+      plan.power.run(Game.flags.Power.pos.roomName);
     }
 },
 cleanup: function() {
@@ -118,12 +119,8 @@ runCreeps: function() {
     });
     _.forEach(Game.powerCreeps, pc => {
       if(!pc.ticksToLive) return;
-      if(Game.time % 50 == 0) pc.usePower(PWR_GENERATE_OPS);
-      if(pc.ticksToLive < 2000) {
-        if(role.pcRenew.run(pc) != ERR_NOT_FOUND) return;
-      }
-      const r = role[pc.memory.role];
-      if(r) r.run(pc);
+      if(pc.className != opsPower.CLASS) return;
+      opsPower.run(pc);
     });
 },
 runStructs: function() {
@@ -140,10 +137,11 @@ module.exports.loop = () => profiler.wrap(() => {
     
     if(!Memory.viz) Memory.viz = {};
     for(const roomName in Memory.viz) {
+      if(roomName == "map") {
+        Game.map.visual.import(Memory.viz[roomName]);
+      } else {
         new RoomVisual(roomName).import(Memory.viz[roomName]);
-    }
-    if(Memory.mapViz) {
-      Game.map.visual.import(Memory.mapViz);
+      }
     }
     if(Game.time % 20 == 0) {
         // Periodic cleanup

@@ -84,7 +84,7 @@ function run(claimFlag) {
             
             // TODO(baptr): This doesn't keep sending bigger ones once the room
             // is able to build its own, which was kind of the point.
-            if(room.find(FIND_MY_CREEPS).length > 5) return OK;
+            if(room.find(FIND_MY_CREEPS).length > 3) return OK;
 
             // Ugly workaround for leaving time to spawn/travel, and help save
             // up for better bodies.
@@ -126,7 +126,7 @@ function run(claimFlag) {
 // - easier to filter enemy rooms
 function pickSpawn(dstPos, maxCost = CREEP_CLAIM_LIFE_TIME - 10) {
     const macroRooms = {};
-    const spawns = Object.values(Game.spawns).filter(s => s.isActive && !s.spawning && s.room.energyCapacityAvailable >= 650);
+    const spawns = Object.values(Game.spawns).filter(s => s.isActive() && !s.spawning && s.room.energyCapacityAvailable >= 650);
     if(!spawns.length) {
       return [null, ERR_BUSY];
     }
@@ -190,7 +190,7 @@ test: function() {
     if(target) {
         const ret = run(target);
         if(ret != OK) {
-          if(ret != ERR_NOT_OWNER || Game.time%50 == 0) console.log(`Claim(${target.pos}) = ${ret}`);
+          if(ret != ERR_NOT_OWNER && (Game.time%50) == 0) console.log(`Claim(${target.pos}) = ${ret}`);
         }
         return ret;
     } else {

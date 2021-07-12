@@ -56,7 +56,6 @@ function fill(creep) {
             avail = src.amount;
             ret = creep.pickup(src);
         } else {
-            console.log(src, src.store);
             avail = src.store.energy;
             ret = creep.withdraw(src, RESOURCE_ENERGY);
         }
@@ -69,47 +68,43 @@ function fill(creep) {
 }
 
 function deliver(creep) {
-    var dst = Game.getObjectById(creep.memory.dest);
-    if(dst && dst.carryCapacity - _.sum(dst.carry) < 20) dst = null;
+  let dst = Game.getObjectById(creep.memory.dest);
+  if(dst && dst.store.getFreeCapacity() < 50) dst = null;
+  if(!dst) {
+    dst = creep.pos.findClosestByPath(FIND_MY_STRUCTURES, {filter: s => {
+      if(s.structureType == STRUCTURE_EXTENSION || s.structureType == STRUCTURE_SPAWN) {
+        return s.energy < s.energyCapacity;
+      }
+      return false;
+    }})
     if(!dst) {
-        dst = creep.pos.findClosestByPath(FIND_MY_CREEPS, {filter: c => {
-            if(c.id == creep.id) return false;
-            const total = _.sum(c.carry);
-            // TODO(baptr): Figure out how to identify creeps that need energy.
-            if(c.carryCapacity - total > 20) {
-                return true;
-            }
-            return false;
-        }});
-        if(!dst) {
-            dst = creep.pos.findClosestByPath(FIND_MY_STRUCTURES, {filter: s => {
-                if(s.structureType != STRUCTURE_EXTENSION || s.structureType != STRUCTURE_SPAWN) {
-                    return false;
-                }
-                return s.energy < s.energyCapacity;
-            }})
-        }
-        if(!dst) {
-            if(creep.carry.energy < creep.carryCapacity) {
-                creep.memory.filling = true;
-            }
-            return ERR_NOT_FOUND;
-        }
-        creep.memory.dest = dst.id;
+      dst = creep.pos.findClosestByPath(FIND_MY_CREEPS, {filter: c => {
+        if(c.id == creep.id) return false;
+        // TODO(baptr): Figure out how to identify creeps that need energy.
+        return c.store.getFreeCapacity() > 20;
+      }});
     }
-    const dist = creep.pos.getRangeTo(dst);
-    if(dist >= 1) {
-        creep.moveTo(dst);
+    if(!dst) {
+      if(creep.carry.energy < creep.carryCapacity) {
+        creep.memory.filling = true;
+      }
+      return ERR_NOT_FOUND;
     }
-    if(dist <= 1) {
-        var dstSpace = 0;
-        if(dst instanceof Creep) {
-            dstSpace = dst.carryCapacity - _.sum(dst.carry);
-        } else {
-            dstSpace = dst.storeCapacity - _.sum(dst.store);
-        }
-        if(creep.transfer(dst, RESOURCE_ENERGY) == OK) {
-            creep.memory.delivered += Math.min(dstSpace, creep.carry.energy);
-        }
+    creep.memory.dest = dst.id;
+  }
+  const dist = creep.pos.getRangeTo(dst);
+  if(dist >= 1) {
+    creep.moveTo(dst);
+  }
+  if(dist <= 1) {
+    var dstSpace = 0;
+    if(dst instanceof Creep) {
+      dstSpace = dst.carryCapacity - _.sum(dst.carry);
+    } else {
+      dstSpace = dst.storeCapacity - _.sum(dst.store);
     }
+    if(creep.transfer(dst, RESOURCE_ENERGY) == OK) {
+      creep.memory.delivered += Math.min(dstSpace, creep.carry.energy);
+    }
+  }
 }

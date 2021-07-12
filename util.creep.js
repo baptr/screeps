@@ -41,8 +41,11 @@ recycle: function(creep) {
     return recycle.convert(creep);
 },
 track: function(creep, action, ret = OK) {
-  if(creep.memory.life && ret == OK) {
-      creep.memory.life[action] = (creep.memory.life[action]+1) || 1;
+  if(!creep.memory.life) return ret;
+  if(ret == OK) {
+    creep.memory.life[action] = (creep.memory.life[action]+1) || 1;
+  } else if(ret == ERR_TIRED) {
+    creep.memory.life['tired'] = (creep.memory.life['tired']+1) || 1;
   }
   return ret;
 },

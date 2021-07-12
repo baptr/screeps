@@ -65,28 +65,48 @@ module.exports = {
        return spawn.spawnCreep(body, 'defender_'+Game.time, {memory: mem});
     },
     run: function(creep) {
+      let enemy = Game.getObjectById(creep.memory.enemy);
+      if(!enemy) {
+        enemy = creep.pos.findClosestByPath(FIND_HOSTILE_CREEPS);
+        if(enemy) creep.memory.enemy = enemy.id;
+      }
+      if(enemy) creep.moveTo(enemy);
+
       if(creep.hits < creep.hitsMax) {
+        creep.rangedMassAttack();
         creep.heal(creep);
       } else {
         const friend = creep.pos.findClosestByRange(FIND_MY_CREEPS, {filter: c => c.hits < c.hitsMax});
         if(friend) {
           const range = creep.pos.getRangeTo(friend);
           if(range == 1) {
+            creep.rangedMassAttack();
             creep.heal(friend);
-          } else {
+          } else if(!enemy) {
             creep.rangedHeal(friend);
           }
           creep.moveTo(friend);
         }
       }
 
-      if(creep.memory.targetRoom && creep.memory.targetRoom != creep.room.name) {
-        return creep.moveTo(new RoomPosition(25, 25, creep.memory.targetRoom));
+      if(!enemy) {
+        if(creep.memory.targetRoom && creep.memory.targetRoom != creep.room.name) {
+          return creep.moveTo(new RoomPosition(25, 25, creep.memory.targetRoom));
+        } else {
+          creep.moveTo(25, 25, {range: 3});
+        }
       }
 
+      const enemySites = creep.room.find(FIND_CONSTRUCTION_SITES).filter(cs => !cs.my);
+      const tower = enemySites.sort((a, b) => b.progress - a.progress).find(s => s.structureType == STRUCTURE_TOWER && s.progress);
+      if(tower) {
+        creep.moveTo(tower);
+        if(creep.pos.isEqualTo(tower.pos)) creep.move(0,0); // Hack to not stay on it if it was placed under us.
+        creep.rangedMassAttack();
+        return;
+      }
 
       // TODO(baptr): Prioritize healers.
-      let enemy = creep.pos.findClosestByPath(FIND_HOSTILE_CREEPS);
       if(!enemy) {
         enemy = creep.pos.findClosestByPath(FIND_HOSTILE_STRUCTURES);
       }
@@ -106,16 +126,26 @@ module.exports = {
         }
       } else {
         creep.say('Yarrrrr', true);
-        if(creep.rangedAttack(enemy) == ERR_NOT_IN_RANGE) {
+        const range = creep.pos.getRangeTo(enemy);
+        if(range > 3) {
           creep.moveTo(enemy, {reusePath: 0});
+        }
+        const baddies = creep.pos.findInRange(FIND_HOSTILE_CREEPS, 5);
+        const scary = baddies.filter(c => c.getActiveBodyparts(ATTACK) + c.getActiveBodyparts(RANGED_ATTACK));
+        const nearBy = creep.pos.findInRange(baddies, 3);
+        if(nearBy.length > 2) {
+          // TODO: calculate damage?
+          creep.rangedMassAttack();
+          creep.heal(creep);
         } else {
-          const baddies = creep.pos.findInRange(FIND_HOSTILE_CREEPS, 4);
-          // TODO: Only run away from dangerous ones.
-          if(baddies.length) {
-            const path = PathFinder.search(creep.pos, baddies.map(b => ({range: 3, pos: b.pos})), {flee: true, maxCost: 100});
-            if(path.path.length) {
-              creep.move(creep.pos.getDirectionTo(path.path[0]));
-            }
+          if(creep.rangedAttack(enemy) == OK) {
+            creep.memory.delivered += creep.getActiveBodyparts(RANGED_ATTACK) * RANGED_ATTACK_POWER;
+          }
+        }
+        if(scary.length) {
+          const path = PathFinder.search(creep.pos, scary.map(b => ({range: 3, pos: b.pos})), {flee: true, maxCost: 100});
+          if(path.path.length) {
+            creep.move(creep.pos.getDirectionTo(path.path[0]));
           }
         }
       }

@@ -12,7 +12,7 @@ module.exports = {
   spawn: function(spawn) {
     // TODO: could get away with very little move since we *should* be on roads.
     const body = new BodyBuilder([MOVE, CARRY], spawn.room.energyAvailable)
-    body.extend([MOVE, CARRY], limit=3);
+    body.extend([MOVE, CARRY], limit=2);
     return spawn.spawnCreep(body.sort(), `powerLoader-${spawn.room.name}-${Game.time}`, {memory: {
       role: ROLE,
       cost: body.cost,
@@ -25,10 +25,12 @@ module.exports = {
 
     const store = creep.room.storage;
     if(!store) return;
+    // XXX If the creep is holding 48/50 energy, this can get blocked
+    // transfering 2 power at a time :-(
     if(bank.store.power < 50 && (creep.store.power || creep.store.getFreeCapacity())) { // XXX handle running out of power
       if(creep.store.power == 0) {
         creep.moveTo(store);
-        const want = Math.min(creep.store.getFreeCapacity(), 100-bank.store.power, store.power);
+        const want = Math.min(creep.store.getFreeCapacity(), 100-bank.store.power, store.store.power);
         creep.withdraw(store, RESOURCE_POWER, want);
       } else {
         creep.moveTo(bank);

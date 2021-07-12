@@ -31,7 +31,9 @@ module.exports = {
         }
       }
 
+        // XXX
         if(creep.memory.roomPath) return pathUtil.macroMove(creep);
+        if(creep.memory.exitPath) return pathUtil.macroMove(creep);
 
         const tgt = creep.memory.reloRoom;
         if(!tgt) {
@@ -40,6 +42,7 @@ module.exports = {
         }
         
         if(creep.room.name == tgt) {
+          creep.moveTo(25, 25); // XXX is there some risk this leaves the room before converting?
             var newRole = creep.memory.reloNextRole;
             creep.say('Now '+newRole)
             creep.memory.role = newRole;

@@ -1,6 +1,7 @@
 const pathUtil = require('util.pathing');
 const splay = require('util.splay');
 const resUtil = require('util.resources');
+const powerPlan = require('plan.power');
 
 const scout = require('role2.scout');
 const roadWorker = require('role2.roadWorker');
@@ -62,7 +63,7 @@ function swampRoads(src, dst, range=0, opts={}) {
 
   const ret = PathFinder.search(src, {pos: dst, range}, {plainCost: p, swampCost: s, maxOps: 10000,
     roomCallback: name => macroRooms.includes(name) ? roomMatrix(name) : false});
-  if(opts.drawViz) Memory.mapViz = Game.map.visual.poly(ret.path).export();
+  if(opts.drawViz) Memory.viz['map'] = Game.map.visual.poly(ret.path).export();
   let swampSteps = 0;
   let roadSteps = 0;
   for(const pos of ret.path) {
@@ -123,6 +124,7 @@ function swampRoads(src, dst, range=0, opts={}) {
 
 function plan(roomName) {
   if(Game.time % 10 != 0) return;
+  if(powerPlan.inProgress()) return;
   if(!splay.isTurn('plan.remoteHarvest', roomName, Game.time/10)) return;
 
   const room = Game.rooms[roomName];
@@ -133,7 +135,7 @@ function plan(roomName) {
     return
   }
 
-  const activeSpawns = Object.values(Game.spawns).filter(s => s.isActive);
+  const activeSpawns = Object.values(Game.spawns).filter(s => s.isActive());
   const [anySpawn, anyPath] = pathUtil.macroClosest(roomName, activeSpawns.filter(s => !s.spawning), {flipPath: true});
 
   // XXX make the returns of macroClosest easier to use.
@@ -192,7 +194,7 @@ function plan(roomName) {
   const hauls = hauler.assigned(roomName);
   const dist = closePath.length;
   const availRes = resUtil.roomResource(room);
-  if(hauls.length < dist*3 && (hauls.length+1) * 850 < availRes) {
+  if(hauls.length < dist*2 && (hauls.length+1) * 850 < availRes) {
     const ret = hauler.spawnRemote(spawn, roomName);
     console.log(`remoteHarvest[${roomName}] had ${hauls.length} haulers to go ${dist} away, for ${availRes} energy: ${ret}`);
     return ret 

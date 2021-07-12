@@ -1,4 +1,5 @@
 const util = require('util.creep');
+const pathUtil = require('util.pathing');
 const resources = require('util.resources');
 const BodyBuilder = require('util.bodybuilder');
 
@@ -46,7 +47,7 @@ spawnCondition: function(room, numBoots) {
     if(numBoots >= numSources*3) { return false }
     
     // TODO(baptr): Tune limit before leaving more room for other types.
-    if(energyCap > 1000 && numBoots >= numSources*2 && spareEnergy < numSources*3000) {
+    if(energyCap > 1000 && numBoots >= numSources*2.5 && spareEnergy < numSources*3000) {
         return false;
     }
     if(numBoots >= numSources*1.5 && energyAvail < 0.9*energyCap) {
@@ -205,6 +206,10 @@ run: function(creep) {
                 util.track(creep, 'transfer', ret);
                 trace(creep, `transfer ${dest} ret: ${ret}`);
                 effort = Math.min(creep.carry.energy, dest.energyCapacity-dest.energy);
+                if(ret == OK) {
+                  const next = findDest(creep);
+                  if(next) creep.moveTo(next);
+                }
                 break;
             case STRUCTURE_CONTROLLER:
                 // TODO(baptr): Consider dropping some energy instead of sitting
@@ -332,6 +337,7 @@ function findSrc(creep) {
     if(creep.carry.energy > 0) {
         creep.memory.filling = false;
     }
+
     return null;
 }
 
@@ -356,18 +362,15 @@ function findDest(creep) {
     }
     
     var dest;
-    // If we're under attack, keep towers supplied.
-    // TODO(baptr): Load leveling
-    if(creep.room.find(FIND_HOSTILE_CREEPS).length) {
-        dest = creep.pos.findClosestByPath(FIND_MY_STRUCTURES, {filter: s => {
-            return s.isActive && s.structureType == STRUCTURE_TOWER && s.energy < 750;
+    // Keep towers supplied.
+    dest = creep.pos.findClosestByPath(FIND_MY_STRUCTURES, {filter: s => {
+        return s.isActive() && s.structureType == STRUCTURE_TOWER && s.energy < 950;
         }});
-        if(dest) return dest;
-    }
+    if(dest) return dest;
     
     // Supply spawning structures.
     dest = creep.pos.findClosestByPath(FIND_MY_STRUCTURES, {filter: s => {
-        if(!s.isActive) return false;
+        if(!s.isActive()) return false;
         switch(s.structureType) {
         case STRUCTURE_SPAWN:
         case STRUCTURE_EXTENSION:
@@ -378,7 +381,7 @@ function findDest(creep) {
     if(dest) { return dest; }
     
     dest = creep.pos.findClosestByPath(FIND_MY_STRUCTURES, {filter: s => {
-        return s.isActive && s.structureType == STRUCTURE_TOWER && s.energy < 500
+        return s.isActive() && s.structureType == STRUCTURE_TOWER && s.energy < 500
     }})
     if(dest) return dest;
     
@@ -407,5 +410,10 @@ function findDest(creep) {
     if(ctrl && ctrl.my) {
         return ctrl;
     }
-    return null;
+
+    // If we've fallen through all of this, maybe we ended up out of the room?
+    const [nearBy, path] = pathUtil.macroClosest(creep.pos.roomName, Object.values(Game.spawns));
+    console.log(`${creep.name} last ditch spawn search: ${nearBy}`);
+    if(nearBy == ERR_NO_PATH) return null;
+    return nearBy;
 }

@@ -106,17 +106,13 @@ spawnCondition: function(room, numExisting) {
 },
 // mkBody is exported for plan.claim
 mkBody: function(energyAvailable) {
-    var builder = new BodyBuilder(MIN_BODY, energyAvailable);
+    const builder = new BodyBuilder(MIN_BODY, energyAvailable);
     
     builder.extend([WORK, MOVE, CARRY, MOVE], limit=3);
     builder.extend([CARRY, MOVE], limit=2);
     builder.extend([WORK, MOVE], limit=2);
     
-    builder.extend([CARRY, MOVE], limit=5);
-    builder.extend([WORK, MOVE], limit=5);
-    
-    builder.extend([CARRY, MOVE]);
-    builder.extend([MOVE]);
+    builder.extend([MOVE], limit=5);
     
     if(builder.count(WORK) < 2) return null;
     

@@ -15,6 +15,8 @@ const splay = require('util.splay');
 const pathUtil = require('util.pathing');
 const BodyBuilder = require('util.bodybuilder');
 
+const powerPlan = require('plan.power');
+
 /* TODOs:
  - Add additional spawners at some point to avoid spawn time bottlenecks.
    - Make them usable.
@@ -152,21 +154,21 @@ run: function(room) {
         return;
     }
 
-    const allRoomSpawns = room.find(FIND_MY_SPAWNS);
-    const roomSpawns = allRoomSpawns.filter(s => s.isActive && !s.spawning);
+    const localSpawns = room.find(FIND_MY_SPAWNS);
+    const availSpawns = localSpawns.filter(s => s.isActive() && !s.spawning);
 
     // Don't try to defend rooms we're just passing through.
     const ctrl = room.controller;
-    const isMine = ctrl && (ctrl.my || (ctrl.reservation && ctrl.reservation.username == 'baptr') || room.find(FIND_MY_STRUCTURES) > 0 || room.find(FIND_MY_CREEPS) > 3);
+    const isMine = ctrl && (ctrl.my || (ctrl.reservation && ctrl.reservation.username == 'baptr') || room.find(FIND_MY_STRUCTURES) > 0 || room.find(FIND_MY_CREEPS) > 2) || local.remoteHarvestRooms.includes(room.name);
 
     const hostiles = room.find(FIND_HOSTILE_CREEPS, {filter: c => c.body.some(b => b.hits && SCARY_PARTS.includes(b.type))});
+    // XXX base life check on distance
+    const existingDef = roleDefender.assigned(room.name).filter(c => c.ticksToLive > 300);
     // Defenders sack in-room if there's nothing to attack, so we only want to
     // leave standing ones for rooms without their own spawns...
-    let needDefense = isMine && hostiles.length > 0;
-    if(!needDefense && isMine && allRoomSpawns.length == 0) {
-      // XXX base life check on distance
-      const existingDef = roleDefender.assigned(room.name).filter(c => c.ticksToLive > 300);
-      let wantDefs = 1;
+    let needDefense = isMine && hostiles.length > existingDef.length;
+    if(!needDefense && isMine && localSpawns.length == 0) {
+      let wantDefs = 0; // XXX decide if standby defenders are helpful
       if(local.defenseRooms && room.name in local.defenseRooms) {
         wantDefs = local.defenseRooms[room.name];
       }
@@ -175,16 +177,16 @@ run: function(room) {
     }
     if(needDefense) {
         if(Game.time % 20 == 0) console.log(`${room} needs defenses from: ${hostiles}`);
-        if(roomSpawns.length) {
-          if(roleDefender.spawn(roomSpawns[0], {}) == OK) roomSpawns.shift();
+        if(availSpawns.length) {
+          if(roleDefender.spawn(availSpawns[0], {}) == OK) availSpawns.shift();
         } else {
-          const allSpawns = Object.values(Game.spawns).filter(s => s.isActive && !s.spawning);
+          const allSpawns = Object.values(Game.spawns).filter(s => s.isActive() && !s.spawning);
           const [remSpawn, path] = pathUtil.macroClosest(room.name, allSpawns, {flipPath: true});
           if(remSpawn != ERR_NO_PATH) {
             const body = new BodyBuilder([MOVE, MOVE, MOVE, MOVE, MOVE, RANGED_ATTACK, HEAL], remSpawn.room.energyAvailable);
             body.extend([MOVE, MOVE, MOVE, MOVE, MOVE, RANGED_ATTACK, RANGED_ATTACK]);
             const ret = remSpawn.spawnCreep(body.body, `relo-defender-${room.name}-${Game.time}`, {
-              memory: relocator.setMem({roomPath: path, cost: body.cost}, room.name, roleDefender.ROLE)});
+              memory: relocator.setMem({roomPath: path, targetRoom: room.name, cost: body.cost}, room.name, roleDefender.ROLE)});
             // Return early if we're saving up energy.
             // XXX may end up making it harder to gather energy?
             if(ret == ERR_NOT_ENOUGH_ENERGY) return ret;
@@ -194,7 +196,7 @@ run: function(room) {
         return;
     }
 
-    if(!roomSpawns.length) {
+    if(!availSpawns.length) {
         if(room.controller && (Game.time/40) % 10 == 0) console.log("Awaiting spawn in", room.name);
         return;
     }
@@ -203,13 +205,13 @@ run: function(room) {
     // or scale out the time further.
     // XXX just splay this instead of the whole room?
     if(room.controller.level > (room.memory.level || 0) || splay.isTurn('room', room.name, Game.time/500)) {
-        planBuildings(roomSpawns[0].pos, [STRUCTURE_EXTENSION, STRUCTURE_TOWER]);
+        planBuildings(availSpawns[0].pos, [STRUCTURE_EXTENSION, STRUCTURE_TOWER]);
         planRoads(room);
         planMining(room);
         room.memory.level = room.controller.level;
     }
     
-    for(const s of roomSpawns) {
+    for(const s of availSpawns) {
       // TOOD(baptr): Let the spawn functions pick spawn so they don't have to 
       // recalculate all the room stuff.
       if(!s.spawning) spawnCreeps(s, room);
@@ -236,14 +238,8 @@ function spawnCreeps(spawn, room) {
     var numRole = r => (kinds[r] || []).length;
     
     // TODO(baptr): Make this more dynamic based on available harvest spots.
-    if(numRole(bootstrapper.ROLE) > 3 && numRole(dropHarvester.ROLE) < 2) {
+    if(numRole(bootstrapper.ROLE) > 2 && numRole(dropHarvester.ROLE) < 2) {
         dropHarvester.spawn(spawn);
-        if(spawn.spawning) return;
-    }
-    
-    // XXX super hack
-    if(Game.time % 1500 == 840 && spawn.room.name == 'E16N27') {
-        if(remoteHarvester.spawn(spawn, 'E15N27') == OK) return;
         if(spawn.spawning) return;
     }
     
@@ -251,10 +247,9 @@ function spawnCreeps(spawn, room) {
         bootstrapper.spawn(spawn);
         if(spawn.spawning) return;
     }
-    
-    // XXX If this stops running every tick, this sort of delay tactic will fail horribly.
-    if(Game.time % 100 == 0) { // bleh
-        dropHarvester.spawn(spawn);
+
+    if(powerLoader.spawnCondition(room)) {
+        powerLoader.spawn(spawn);
         if(spawn.spawning) return;
     }
     
@@ -264,6 +259,9 @@ function spawnCreeps(spawn, room) {
             hauler.spawn(spawn);
         }
         if(spawn.spawning) return;
+
+        // TODO: better ways to save up.
+        if(powerPlan.inProgress()) return;
         
         if(storeUpgrader.spawnCondition(room, numRole(storeUpgrader.ROLE))) {
             storeUpgrader.spawn(spawn);
@@ -275,6 +273,8 @@ function spawnCreeps(spawn, room) {
         }
         if(spawn.spawning) return;
     }
+
+    if(powerPlan.inProgress()) return;
     
     var minerNeeded = room.memory.needMiner;
     if(minerNeeded) {
@@ -295,11 +295,6 @@ function spawnCreeps(spawn, room) {
         if(bob.spawn(spawn, bobNeeded.res, bobNeeded.src, bobNeeded.dest) == OK) {
             delete room.memory.needBob;
         }
-        if(spawn.spawning) return;
-    }
-
-    if(powerLoader.spawnCondition(room)) {
-        powerLoader.spawn(spawn);
         if(spawn.spawning) return;
     }
 }
