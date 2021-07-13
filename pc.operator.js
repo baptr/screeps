@@ -9,10 +9,10 @@ run: function(pc) {
     switch(parseInt(pwr)) {
     case PWR_OPERATE_EXTENSION:
       const store = pc.room.storage;
-      if(store && store.store.energy > 2000) {
+      // TODO: Base on power level.
+      if(store && store.store.energy > 2000 && pc.room.energyAvailable < pc.room.energyCapacityAvailable*0.75) {
         // Might be too far away, but we can keep spamming it until it works.
         const ret = pc.usePower(pwr, store);
-        if(ret == OK) console.log(`Operated extension in ${pc.room.name}`);
       }
       break;
     case PWR_GENERATE_OPS:

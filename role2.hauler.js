@@ -1,6 +1,8 @@
 const BodyBuilder = require('util.bodybuilder');
 const resutil = require('util.resources');
 const util = require('util.creep');
+const pathUtil = require('util.pathing');
+const recycle = require('role2.recycle');
 
 const ROLE = 'hauler';
 module.exports = {
@@ -69,6 +71,8 @@ run: function(creep) {
     util.track(creep, 'alive');
     if(!_.sum(creep.carry)) creep.memory.filling = true;
 
+    if(creep.memory.exitPath) return pathUtil.macroMove(creep, {swampCost: 4});
+
     if(creep.memory.filling) {
         var src = findSrc(creep);
         // TODO(baptr): If there's already enough energy onboard, or lifetime is
@@ -78,6 +82,14 @@ run: function(creep) {
             if(creep.carry.energy) creep.memory.filling = false;
             if(creep.memory.remoteRoom && creep.room.name == creep.memory.remoteRoom) creep.moveTo(15, 15);
             return false;
+        }
+        if(creep.pos.roomName != src.pos.roomName) {
+          const ret = pathUtil.setMem(creep.memory, creep.pos, src.pos, {cache: false, swampCost: 4, ttl: creep.ticksToLive/2});
+          if(ret == ERR_NO_PATH || ret == ERR_NOT_IN_RANGE) {
+            console.log(`Would take too long for ${creep.name} to round trip ${creep.pos} to ${src.pos} (ttl=${creep.ticksToLive}, recycling`);
+            return recycle.convert(creep);
+          }
+          return pathUtil.macroMove(creep, {swampCost: 4});
         }
         if(!creep.pos.inRangeTo(src, 1)) {
             return util.track(creep, 'move', creep.moveTo(src))
@@ -121,6 +133,10 @@ run: function(creep) {
     
     var dest = findDest(creep);
     if(!dest) return false;
+    if(creep.pos.roomName != dest.pos.roomName) {
+      pathUtil.setMem(creep.memory, creep.pos, dest.pos, {cache: false, swampCost: 4});
+      return pathUtil.macroMove(creep, {swampCost: 4});
+    }
     if(!creep.pos.inRangeTo(dest.pos, 1)) {
         return util.track(creep, 'haul', creep.moveTo(dest));
     }
@@ -137,12 +153,12 @@ run: function(creep) {
     switch(ret) {
     case OK:
         // Hard to be accurate, so let's just be quick.
-        creep.memory.delivered += creep.carry[resType];
+        creep.memory.delivered += creep.store[resType];
         // XXX set filling? if we have anything left, the delivery was a lie,
         // and we'll just hit FULL next time anyway... probably?
         break;
     case ERR_FULL:
-        // XXX wait? look for nearby creeps with capacity?
+        // XXX wait? look for nearby creeps with capacity? drop it on the ground?
         if(creep.carry[resType] < creep.carryCapacity * 0.10) {
             creep.memory.filling = true;
             return;
@@ -184,16 +200,19 @@ function findSrc(creep) {
             return src;
         }
     }
-    if(creep.memory.remoteRoom) {
-        const remoteRoom = creep.memory.remoteRoom;
-        if(creep.pos.roomName != remoteRoom) {
-            // TODO check visibilty and try picking a source anyway.
-            creep.moveTo(new RoomPosition(25, 25, remoteRoom));
-            return null;
+    let room = creep.room;
+    if(creep.memory.remoteRoom && creep.pos.roomName != creep.memory.remoteRoom) {
+        const remoteRoom = Game.rooms[creep.memory.remoteRoom];
+        if(remoteRoom) { 
+          room = remoteRoom;
+        } else {
+          creep.moveTo(new RoomPosition(25, 25, creep.memory.remoteRoom));
+          return null;
         }
     }
-    var ground = creep.room.find(FIND_DROPPED_RESOURCES);
-    ground.push(...creep.room.find(FIND_TOMBSTONES, {filter: t => _.sum(t.store) > 0}));
+    var ground = room.find(FIND_DROPPED_RESOURCES);
+    ground.push(...room.find(FIND_TOMBSTONES, {filter: t => _.sum(t.store) > 0}));
+    // XXX does findClosest do something reasonable/cheap when out of room?
     var res = creep.pos.findClosestByPath(ground);
     if(res) {
         creep.memory.src = res.id;
@@ -229,10 +248,12 @@ function findDest(creep) {
         return dest;
       }
       if(dest.room.storage && dest.room.storage.my) return dest.room.storage;
-      for(const spawn of dest.room.find(FIND_MY_SPAWNS)) {
-        const cont = spawn.pos.findClosestByRange(FIND_STRUCTURES, {filter: s => s.store && s.store.getFreeCapacity(RESOURCE_ENERGY)});
-        if(cont) {
-          return cont;
+      if(creep.store.energy) {
+        for(const spawn of dest.room.find(FIND_MY_SPAWNS)) {
+          const cont = spawn.pos.findClosestByRange(FIND_STRUCTURES, {filter: s => s.store && s.store.getFreeCapacity(RESOURCE_ENERGY)});
+          if(cont) {
+            return cont;
+          }
         }
       }
     }

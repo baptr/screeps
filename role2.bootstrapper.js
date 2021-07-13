@@ -68,7 +68,6 @@ spawn: function(spawn, extMem={}) {
     builder.extend([WORK, CARRY, MOVE, MOVE], limit=2);
     builder.extend([CARRY, MOVE], limit=3)
     builder.extend([WORK, MOVE], limit=2);
-    builder.extend([CARRY, MOVE]);
     
     builder.sort();
     

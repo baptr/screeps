@@ -84,6 +84,12 @@ function roomCallback(roomName) {
     return out;
 }
 
+function exitPath(fullPath) {
+  // TODO: Only remember the *outbound* step, not the inbound ones.
+  const path = fullPath.path;
+  return path.filter(pos => pos.x == 0 || pos.x == 49 || pos.y == 0 || pos.y == 49).concat(path[path.length-1]);
+}
+
 module.exports = {
 roomCallback,
 swampCheck: function(src, dest, roomMatrix=null) {
@@ -272,17 +278,16 @@ macroClosest: function(srcRoom, goals, opts={}) {
     }
     return [goal, bestPath];
 },
-exitPath: function(fullPath) {
-  const path = fullPath.path;
-  return path.filter(pos => pos.x == 0 || pos.x == 49 || pos.y == 0 || pos.y == 49).concat(path[path.length-1]);
-},
-setMem: function(mem, spawnRoom, destRoom, opts={}) {
-    const path = macroPath(spawnRoom, destRoom, opts.badRooms, opts.badCost);
-    if(!path) {
-      console.log(`Unable to find remote path from ${spawnRoom} to ${destRoom}`);
+exitPath,
+setMem: function(mem, srcPos, dstPos, opts={}) {
+    // TODO: better position info
+    const path = longPath(srcPos, dstPos, opts);
+    if(path == ERR_NO_PATH) {
+      console.log(`Unable to find remote path from ${srcPos} to ${dstPos}`);
       return ERR_NO_PATH;
     }
-    mem.roomPath = path;
+    if(opts.ttl && path.cost > opts.ttl) return ERR_NOT_IN_RANGE;
+    mem.exitPath = exitPath(path);
     return mem;
 },
 travelCost,

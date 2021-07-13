@@ -51,7 +51,9 @@ run: function(creep) {
       }
       creep.memory.target = target.id;
     }
-    util.track(creep, 'advance', creep.moveTo(target));
+    if(!creep.pos.isNearTo(target)) {
+      util.track(creep, 'advance', creep.moveTo(target));
+    }
     if(creep.pos.inRangeTo(target, 2)) {
         const ret = util.track(creep, 'attack', creep.attack(target));
         if(ret == OK) creep.memory.delivered += creep.getActiveBodyparts(ATTACK)*ATTACK_POWER;

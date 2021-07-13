@@ -62,6 +62,7 @@ runPlanners: function() {
         if(plan.safemode.check(r)) {
           const ret = r.controller.activateSafeMode();
           console.log(`Activating safemode in ${r.name} at ${Game.time} = ${ret}`);
+          Game.notify(`Activated safemode in ${r.name} at ${Game.time} = ${ret}`);
         }
     })
 

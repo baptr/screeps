@@ -22,15 +22,13 @@ spawn: function(spawn) {
     const availEnergy = room.energyAvailable;
     if(availEnergy < MIN_HARVESTER_COST || spawn.spawning) { return ERR_BUSY; }
     
+    // TODO: Scale for reserved/unreserved, seasonal single/double rooms.
     var builder = new BodyBuilder([WORK, WORK, MOVE], availEnergy);
     builder.extend([WORK, WORK, MOVE], limit=(HARVESTER_WORKS - builder.count(WORK))/2);
-    if(builder.count(WORK) < 3) builder.extend([WORK], limit=1);
     builder.extend([CARRY, MOVE], limit=1);
-    builder.extend([WORK], limit=1);
-    builder.sort();
     
     // TODO(baptr): Base on available locations near the spawn, and total room tier.
-    // Small is fine early one, but we'd want to save up later
+    // Small is fine early on, but we'd want to save up later
     if(builder.count(WORK) < 3) return ERR_NOT_ENOUGH_RESOURCES;
     
     let targetSource;
@@ -40,6 +38,13 @@ spawn: function(spawn) {
       targetSource = pickSource(room);
     }
     if(!targetSource) { return ERR_NOT_FOUND; }
+
+    const workDesired = targetSource.energyCapacity / ENERGY_REGEN_TIME / HARVEST_POWER;
+    if(builder.count(WORK) < workDesired && builder.energyRemaining > BODYPART_COST[WORK]) {
+      builder.extend([WORK, WORK, MOVE], limit=(workDesired-builder.count(WORK))/2)
+    }
+    builder.extend([WORK], limit=1);
+    builder.sort();
     
     const name = `${ROLE}-${room.name}-${Game.time}`
     var ret = spawn.spawnCreep(builder.body, name, {memory: {
@@ -73,8 +78,8 @@ spawnRemote: function(spawn, srcRoom, srcID=null) {
         }
     }
     const body = new BodyBuilder([WORK, CARRY, MOVE], spawn.room.energyAvailable);
-    body.extend([WORK, WORK, MOVE]);
-    body.extend([WORK, MOVE]);
+    body.extend([WORK, WORK, MOVE], limit=5);
+    body.extend([WORK, MOVE], limit=1);
     if(body.count(WORK) < 4) { // randomly chosen. TODO: math
       return ERR_NOT_ENOUGH_ENERGY;
     }
@@ -109,6 +114,7 @@ run: function(creep) {
     if(!creep.pos.isNearTo(src)) {
         // XXX need to prevent repositioning for a different container from
         // flapping against this.
+        // TODO: Bump blockers
         const ret = creep.moveTo(src);
         util.track(creep, 'move', ret);
         return ret;
@@ -200,6 +206,7 @@ pickSource,
 // XXX this feels expensive...
 // TODO(baptr): memoize the time to pay attention again?
 function pickSource(room) {
+    // TODO: Check memory instead of in-room creeps for remote harvesters.
     var harvesters = room.find(FIND_MY_CREEPS, {filter: c => c.memory.role == ROLE});
     
     var workParts = {};
@@ -219,18 +226,19 @@ function pickSource(room) {
     const assigned = function(id) { return workParts[id] || 0 };
     const existing = function(id) { return numHarvesters[id] || 0 };
     
-    var sources = room.find(FIND_SOURCES);
+    const sources = room.find(FIND_SOURCES);
     sources.sort((a,b) => assigned(a.id)-assigned(b.id));
     
-    for(var i = 0; i < sources.length; i++) {
-        var s = sources[i];
-        if(assigned(s.id) >= HARVESTER_WORKS) {
-            continue;
-        }
-        if(existing(s.id) >= pathing.spacesNear(s.pos).length) {
-            continue;
-        }
-        return s;
+    for(const s of sources) {
+      const target = s.energyCapacity / ENERGY_REGEN_TIME / HARVEST_POWER;
+      if(assigned(s.id) >= target) {
+        continue;
+      }
+      // TODO: Unless they're lower part density than we'd spawn now...
+      if(existing(s.id) >= pathing.spacesNear(s.pos).length) {
+        continue;
+      }
+      return s;
     }
     return null;
 }

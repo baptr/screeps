@@ -167,11 +167,13 @@ function plan(roomName) {
   const harvesters = dropHarvester.assigned(roomName);
 
   // B: do we need to positively reserve to keep the workers busy?
-  if(rsvs.length < 2) {
+  if(rsvs.length < 1) {
     // TODO: count work parts in harvesters, compare to base energy regen rate
     // for the room, decide if we should reserve...
     // TODO: store this decision? (but update as workers get bigger..)
     // XXX... finish decision/setup for reserving
+    const ret = reserver.spawn(spawn, roomName);
+    return ret;
   }
 
   // Spawn roadWorker remote bootstrappers to do initial harvesting and build
@@ -185,7 +187,6 @@ function plan(roomName) {
     }
   }
 
-  // XXX spawn drop harvesters...
   if(harvesters.filter(c => c.ticksToLive > 100).length < srcs.length) {
     return dropHarvester.spawnRemote(spawn, roomName);
   }

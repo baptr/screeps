@@ -9,7 +9,9 @@ module.exports = {
       mem.reloRoom = roomName;
       mem.reloNextRole = nextRole;
       if(srcRoom) {
-        return pathUtil.setMem(mem, srcRoom, roomName);
+        srcPos = Game.rooms[srcRoom].find(FIND_MY_SPAWNS)[0].pos;
+        dstPos = new RoomPosition(25, 25, roomName);
+        return pathUtil.setMem(mem, srcPos, dstPos);
       }
       return mem;
     },
